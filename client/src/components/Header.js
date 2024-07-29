@@ -1,6 +1,8 @@
 import React from 'react';
 import '../styles/style.css';
 import anna from '../assets/Anna_1.svg';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
 const Header = ({ navlinks, auth, handleLogout }) => {
   return (
@@ -44,11 +46,24 @@ const Header = ({ navlinks, auth, handleLogout }) => {
                   </a>
                 </li>
               </>
+              
             ) : (
-              <li className='nav-item'>
-                <button className='btn btn-secondary' onClick={handleLogout}>
-                  Logout
-                </button>
+              <li className='nav-item dropdown'>
+                <a
+                  className='nav-link dropdown-toggle'
+                  href='#'
+                  id='navbarDropdown'
+                  role='button'
+                  data-bs-toggle='dropdown'
+                  aria-expanded='false'
+                >
+                  User
+                </a>
+                <ul className='dropdown-menu dropdown-menu-end' aria-labelledby='navbarDropdown'>
+                  <li><a className='dropdown-item' href='#account'>Account</a></li>
+                  <li><a className='dropdown-item' href='#result'>Result</a></li>
+                  <li><button className='dropdown-item' onClick={handleLogout}>Logout</button></li>
+                </ul>
               </li>
             )}
           </ul>

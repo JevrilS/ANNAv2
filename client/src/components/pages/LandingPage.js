@@ -18,10 +18,15 @@ import axios from 'axios';
 import $ from 'jquery';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min';
+
 window.$ = $;
 window.jQuery = $;
 
 const LandingPage = () => {
+   const [dropdownOpen, setDropdownOpen] = useState(false);
+   const [auth, setAuth] = useState(false); // Add state for authentication
+   const { setShowbot } = useContext(ChatbotContext);
+
    const [formData, setFormData] = useState({
      id_no: '',
      full_name: '',
@@ -40,8 +45,6 @@ const LandingPage = () => {
    });
 
    const [showLoginModal, setShowLoginModal] = useState(false); // Define setShowLoginModal state
-   const [auth, setAuth] = useState(false); // Add state for authentication
-   const { setShowbot } = useContext(ChatbotContext);
 
    const navlinks = [
       { text: 'Home', link: '/#home' },
@@ -148,10 +151,10 @@ const LandingPage = () => {
             setShowLoginModal(false); // Hide the modal
             $('#modal-login').modal('hide'); // Manually hide the modal
             setTimeout(() => {
-             }, 500); // Adjust the delay if necessary
-             
+              $('body').removeClass('modal-open'); // Remove the modal-open class
+              $('.modal-backdrop').remove(); // Remove the modal backdrop
+            }, 500); // Adjust the delay if necessary
             toast.success("Login successful!");
-
          } else {
             console.warn("Unexpected response status or missing data:", response);
             toast.error("Login failed. Please check your credentials.");
@@ -188,7 +191,6 @@ const LandingPage = () => {
             toast.success("User registered successfully");
             $('#modal-register').modal('hide');
             $('#modal-login').modal('show');
-            
          } else {
             toast.error(response.data.message);
          }
@@ -575,74 +577,85 @@ const LandingPage = () => {
 
        
          {/* Login Modal */}
+   {/* Login Modal */}
          <Modal title='Login' target='modal-login' size='modal-md'>
-    <form onSubmit={handleLogin}>
-        <div className='mb-3'>
-            <label htmlFor='loginEmail' className='form-label'>Email address</label>
-            <input type='email' className='form-control' id='loginEmail' required />
-        </div>
-        <div className='mb-3'>
-            <label htmlFor='loginPassword' className='form-label'>Password</label>
-            <input type='password' className='form-control' id='loginPassword' required />
-        </div>
-        <div className='mt-3 float-end'>
-            <button className='btn btn-primary' data-bs-dismiss='modal'>
-                Login
-            </button>
-        </div> {/* Closing div tag added here */}
-    </form>
-</Modal>
+         <form onSubmit={handleLogin}>
+            <div className='mb-3'>
+               <label htmlFor='loginEmail' className='form-label'>Email address</label>
+               <input type='email' className='form-control' id='loginEmail' required />
+            </div>
+            <div className='mb-3'>
+               <label htmlFor='loginPassword' className='form-label'>Password</label>
+               <input type='password' className='form-control' id='loginPassword' required />
+            </div>
+            <div className='d-flex justify-content-center mt-3'>
+            <button className='btn btn-primary' data-bs-dismiss='modal'> Login </button>
+            </div>
+         </form>
+         </Modal>
+
 
          {/* Register Modal */}
          <Modal title='Register' target='modal-register' size='modal-md'>
-            <form onSubmit={handleRegister}>
-               <div className='mb-3 input-group'>
-                  <span className='input-group-text'><i className='fas fa-id-card'></i></span>
-                  <input type='text' className='form-control' id='id_no' placeholder='ID No.' value={formData.id_no} onChange={handleChange} required />
-               </div>
-               <div className='mb-3 input-group'>
-                  <span className='input-group-text'><i className='fas fa-user'></i></span>
-                  <input type='text' className='form-control' id='full_name' placeholder='Full Name' value={formData.full_name} onChange={handleChange} required />
-               </div>
-               <div className='mb-3 input-group'>
-                  <span className='input-group-text'><i className='fas fa-envelope'></i></span>
-                  <input type='email' className='form-control' id='registerEmail' placeholder='Email' value={formData.registerEmail} onChange={handleChange} required />
-               </div>
-               <div className='mb-3 input-group'>
-                  <span className='input-group-text'><i className='fas fa-lock'></i></span>
-                  <input type='password' className='form-control' id='password' placeholder='Password' value={formData.password} onChange={handleChange} required />
-               </div>
-               <div className='mb-3 input-group'>
-                  <span className='input-group-text'><i className='fas fa-lock'></i></span>
-                  <input type='password' className='form-control' id='confirm_password' placeholder='Confirm Password' value={formData.confirm_password} onChange={handleChange} required />
-               </div>
-               <div className='mb-3 input-group'>
-                  <span className='input-group-text'><i className='fas fa-school'></i></span>
-                  <input type='text' className='form-control' id='school' placeholder='School' value={formData.school} onChange={handleChange} required />
-               </div>
-               <div className='mb-3 input-group'>
-                  <span className='input-group-text'><i className='fas fa-phone'></i></span>
-                  <input type='text' className='form-control' id='mobile_no' placeholder='Mobile No.' value={formData.mobile_no} onChange={handleChange} required />
-               </div>
-               <div className='mb-3 input-group'>
-                  <span className='input-group-text'><i className='fas fa-venus-mars'></i></span>
-                  <select className='form-control' id='sex' value={formData.sex} onChange={handleChange} required>
-                     <option value=''>Sex</option>
-                     <option value='Male'>Male</option>
-                     <option value='Female'>Female</option>
-                  </select>
-               </div>
-               <div className='mb-3 input-group'>
-                  <span className='input-group-text'><i className='fas fa-graduation-cap'></i></span>
-                  <input type='text' className='form-control' id='strand' placeholder='Strand' value={formData.strand} onChange={handleChange} required />
-               </div>
-               <div className='mb-3 input-group'>
-                  <span className='input-group-text'><i className='fas fa-level-up-alt'></i></span>
-                  <input type='text' className='form-control' id='grade_level' placeholder='Grade Level' value={formData.grade_level} onChange={handleChange} required />
-               </div>
-               <button type='submit' className='btn btn-primary'>Register</button>
-            </form>
-         </Modal>
+    <form onSubmit={handleRegister}>
+        <div className='mb-3 input-group'>
+            <span className='input-group-text'><i className='fas fa-id-card'></i></span>
+            <input type='text' className='form-control' id='id_no' placeholder='ID No.' value={formData.id_no} onChange={handleChange} required />
+        </div>
+        <div className='mb-3 input-group'>
+            <span className='input-group-text'><i className='fas fa-user'></i></span>
+            <input type='text' className='form-control' id='full_name' placeholder='Full Name' value={formData.full_name} onChange={handleChange} required />
+        </div>
+        <div className='mb-3 input-group'>
+            <span className='input-group-text'><i className='fas fa-envelope'></i></span>
+            <input type='email' className='form-control' id='registerEmail' placeholder='Email' value={formData.registerEmail} onChange={handleChange} required />
+        </div>
+        <div className='mb-3 input-group'>
+            <span className='input-group-text'><i className='fas fa-lock'></i></span>
+            <input type='password' className='form-control' id='password' placeholder='Password' value={formData.password} onChange={handleChange} required />
+        </div>
+        <div className='mb-3 input-group'>
+            <span className='input-group-text'><i className='fas fa-lock'></i></span>
+            <input type='password' className='form-control' id='confirm_password' placeholder='Confirm Password' value={formData.confirm_password} onChange={handleChange} required />
+        </div>
+        <div className='mb-3 input-group'>
+            <span className='input-group-text'><i className='fas fa-school'></i></span>
+            <input type='text' className='form-control' id='school' placeholder='School' value={formData.school} onChange={handleChange} required />
+        </div>
+        <div className='mb-3 input-group'>
+            <span className='input-group-text'><i className='fas fa-phone'></i></span>
+            <input type='text' className='form-control' id='mobile_no' placeholder='Mobile No.' value={formData.mobile_no} onChange={handleChange} required />
+        </div>
+        <div className='mb-3 input-group'>
+            <span className='input-group-text'><i className='fas fa-venus-mars'></i></span>
+            <select className='form-control' id='sex' value={formData.sex} onChange={handleChange} required>
+            <option value='' hidden>Sex</option>
+            <option value='Male'>Male</option>
+                <option value='Female'>Female</option>
+            </select>
+        </div>
+        <div className='mb-3 input-group'>
+            <span className='input-group-text'><i className='fas fa-graduation-cap'></i></span>
+            <select className='form-control' id='strand' value={formData.strand} onChange={handleChange} required>
+            <option value='' hidden>Strand</option>
+            <option value='ABM'>ABM</option>
+            <option value='ARTSDESIGN'>ARTS&DESIGN</option>
+                <option value='STEM'>STEM</option>
+                <option value='HUMMS'>HUMMS</option>
+                <option value='TVL'>TVL</option>
+            </select>
+        </div>
+        <div className='mb-3 input-group'>
+            <span className='input-group-text'><i className='fas fa-level-up-alt'></i></span>
+            <select className='form-control' id='grade_level' value={formData.grade_level} onChange={handleChange} required>
+            <option value='' hidden>Grade Level</option>
+            <option value='11'>Grade 11</option>
+            <option value='12'>Grade 12</option>
+            </select>
+        </div>
+        <button type='submit' className='btn btn-primary'>Register</button>
+    </form>
+</Modal>
       </>
    );
 };
