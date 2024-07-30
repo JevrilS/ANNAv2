@@ -2,7 +2,7 @@ import './App.css';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer, Flip } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
+import AccountDetails from './components/pages/AccountDetails';
 import { useEffect, useState, useRef } from 'react';
 import { ChatbotContext } from './context/ChatbotContext';
 import { UserContext } from './context/UserContext';
@@ -27,10 +27,10 @@ function App() {
    const [isRecommendationProvided, setIsRecommendationProvided] = useState({ riasec: '', strand: '' });
    const [basis, setBasis] = useState('');
 
-   const varify = async () => {
+   const verify = async () => {
       try {
-         const response = await fetch('/auth/is-varify', { headers: { token: localStorage.getItem('token') } });
-         const data = await response.json(response);
+         const response = await fetch('/auth/is-verify', { headers: { token: localStorage.getItem('token') } });
+         const data = await response.json();
          data === true ? setIsAuthenticated(true) : setIsAuthenticated(false);
       } catch (err) {
          console.error(err.message);
@@ -38,7 +38,7 @@ function App() {
    };
 
    useEffect(() => {
-      varify();
+      verify();
    }, []);
 
    const ChatbotContextValue = {
@@ -82,6 +82,7 @@ function App() {
                      {/* <Route path='course' element={<Course />} /> */}
                   </Route>
                   <Route path='/admin/login' element={!isAuthenticated ? <AdminLogin /> : <Navigate replace to='/admin/dashboard' />} />
+                  <Route path='/account' element={<AccountDetails />} />
                   <Route path='*' element={<PageNotFound />} />
                </Routes>
             </Router>

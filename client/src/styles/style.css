@@ -1,188 +1,310 @@
-
-.form-select {
-   -webkit-appearance: none;
-   -moz-appearance: none;
-   appearance: none;
-   background-image: url('data:image/svg+xml;base64,...'); /* Add your custom arrow SVG data here */
-   background-repeat: no-repeat;
-   background-position: right 10px center;
-   background-size: 16px 16px;
-}
-
-.navbar {
-   padding: 8px 0 0 0 !important;
-   min-height: 15vh !important;
-   z-index: 500 !important;
-}
-.navbar-nav {
-   color: var(--black) !important;
-}
-.nav-item {
-   padding: 10px 15px !important;
-}
-
-.nav-link {
-   padding: 0 !important;
-   color: inherit !important;
-   font-size: 1.05rem !important;
-}
-.navbar-nav .nav-item:last-child {
-   padding-right: 0 !important;
-}
-
-.nav-link:hover {
-   color: var(--primary) !important;
-}
-
-.navbar-toggler-icon {
-   background-image: url("data:image/svg+xml;charset=utf8,%3Csvg viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath stroke='rgb(58, 58, 58) ' stroke-width='2' stroke-linecap='round' stroke-miterlimit='10' d='M4 8h24M4 16h24M4 24h24'/%3E%3C/svg%3E") !important;
-}
-.navbar-toggler {
-   border-color: var(--black) !important;
-}
-.navbar-toggler:focus {
-   text-decoration: none !;
-   outline: none !important;
-   box-shadow: 0 0 0 0.25rem rgba(58, 58, 58, 0.25) !important;
-}
-
-.feature,
-.member {
-   width: 30%;
-}
-
-.section-first {
-   /* margin-top: 120px; */
-   margin-top: 15vh !important;
-   min-height: 85vh !important;
-}
-
-.section:not(.section-first) {
-   padding-top: 4.5rem !important;
-   padding-bottom: 4.5rem !important;
-}
-
-#team {
-   padding-top: 0 !important;
-}
-
-/* admin sidebar */
-.sidebar {
-   height: 100vh;
-   width: 220px;
-   top: 0;
-   bottom: 0;
-   padding: 10px 13px;
-   transition: 0.4s;
-   background-color: var(--primary);
-}
-.sidebar.active {
-   width: 70px;
-}
-
-.sidebar-links {
-   padding: 0;
-   white-space: normal;
-   margin-top: 130px;
-   list-style-type: none;
-}
-.sidebar-link {
+/* Additional custom styles */
+.bg-warning {
+   background-color: #ffc107 !important;
+ }
+ 
+ .vh-100 {
+   height: 100vh !important;
+ }
+ 
+ .card {
+   border: none;
+   border-radius: 10px;
+ }
+ 
+ .btn-light {
+   background-color: #fff;
+   border: 1px solid #ccc;
+ }
+ 
+ .rounded-circle {
    display: flex;
    align-items: center;
-   font-weight: bold;
-   padding: 8px;
-   cursor: pointer;
-   text-decoration: none;
-   color: var(--black);
-}
-.sidebar-link span {
-   font-size: 0.95rem !important;
-}
+   justify-content: center;
+ }
+ 
+ .nav-pills .nav-link {
+   color: #000;
+   background-color: transparent;
+   transition: color 0.2s, background-color 0.2s;
+ }
+ 
+ .nav-pills .nav-link.active {
+   background-color: #ffc107;
+   color: #fff !important;
+ }
+ 
+ .nav-pills .nav-link:hover {
+   background-color: #ffc107;
+   color: #fff !important;
+ }
 
-.sidebar-link:hover,
-.sidebar-link.active {
-   color: var(--white);
-}
+ 
+ /* Existing styles, ensuring no major layout changes */
 
-/* admin content */
-.admin-contents {
-   width: 100%;
-   max-height: 100vh !important;
-   overflow-y: auto !important;
-}
-
-.footer-links {
-   padding: 0 !important;
-   margin: 0 !important;
-}
-.footer-links li {
-   list-style-type: none !important;
-}
-.footer-links li a {
-   text-decoration: none !important;
-}
-.footer-links li a:hover {
-   color: var(--white);
-   text-decoration: underline !important;
-}
-
-.footer-links li small {
-   color: var(--white) !important;
-}
-
-/* media quiries */
-@media (max-width: 992px) {
-   .section h1 {
-      font-size: 1.5rem;
-   }
-   .section p,
-   .section li,
-   .section button {
-      font-size: 0.9rem;
-   }
-
-   .nav-link {
-      text-align: center !important;
-   }
-
-   .anna-img {
-      min-width: 200px;
-      width: 230px;
-   }
-}
-
-@media (max-width: 768px) {
-   .feature,
-   .member {
-      text-align: center;
-      width: 100%;
-   }
-
-   .feature > svg,
-   .feature > img,
-   .member > img {
-      display: block;
-      margin: 0 auto;
-   }
-
-   .page-not-found h1 {
-      font-size: 5rem !important;
-   }
-}
-
-@media (max-height: 500px), (max-width: 498px), (max-width: 992px) and (min-height: 500px) {
-   .navbar {
-      padding: 8px 0 0 0 !important;
-      min-height: initial !important;
-      z-index: 500 !important;
-   }
-
-   .section-first {
-      margin-top: 120px !important;
-      min-height: initial !important;
-   }
-
-   #about {
-      margin-top: 20px !important;
-   }
-}
+/* Align the dropdown menu correctly */
+.navbar .dropdown-menu {
+   right: 0;
+   left: auto;
+ }
+ /* toast-custom.css */
+/* Center the dropdown items within the dropdown menu */
+.dropdown-menu {
+   text-align: center; /* Center the text */
+   padding: 0; /* Remove default padding */
+   margin: 0; /* Remove default margin */
+   box-shadow: none; /* Optional: Remove box shadow if it looks too prominent */
+ }
+ 
+ /* Ensure the dropdown items take up full width */
+ .dropdown-item {
+   display: flex; /* Use flexbox for better alignment */
+   justify-content: center; /* Center the content horizontally */
+   align-items: center; /* Center the content vertically */
+   padding: 8px 12px; /* Adjust padding for a smaller look */
+   font-size: 0.875rem; /* Adjust font size if needed */
+   color: #000; /* Default text color */
+   transition: background-color 0.3s, color 0.3s; /* Smooth transition for hover effect */
+ }
+ 
+ /* Hover effect for dropdown items */
+ .dropdown-item:hover {
+   background-color: #e7b22b; /* Background color on hover */
+   color: #000000; /* Text color on hover (can be changed to any color) */
+ }
+ 
+ /* Optional: Adjust dropdown toggle button to fit the menu size */
+ .nav-link.dropdown-toggle {
+   padding: 0.375rem 0.75rem; /* Adjust padding to fit the dropdown button size */
+ }
+ .Toastify__toast {
+   min-height: 8px; /* Further reduced height for compact design */
+   font-size: 0.5rem; /* Smaller font size for a compact look */
+ }
+ 
+ .Toastify__toast-body {
+   margin: 0; /* Minimal margin */
+   padding: 1px 4px; /* Smaller padding for a compact design */
+ }
+ 
+ .Toastify__close-button {
+   width: 10px; /* Even smaller close button size */
+   height: 10px; /* Even smaller close button size */
+   font-size: 8px; /* Smaller font size for close button */
+ }
+ 
+ .Toastify__progress-bar {
+   height: 4px; /* Increased progress bar height for visibility */
+ }
+ 
+ 
+ .navbar {
+    padding: 8px 0 0 0 !important;
+    min-height: 15vh !important;
+    z-index: 500 !important;
+ }
+ 
+ /* Additional styles to ensure alignment */
+ .nav-item.dropdown {
+   position: relative;
+ }
+ 
+ .nav-item.dropdown .dropdown-menu {
+   left: 50%;
+   transform: translateX(-50%);
+ }
+ 
+ /* Existing styles for other elements */
+ .form-select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url('data:image/svg+xml;base64,...'); /* Add your custom arrow SVG data here */
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 16px 16px;
+ }
+ 
+ .navbar-nav {
+    color: var(--black) !important;
+ }
+ 
+ .nav-item {
+    padding: 10px 15px !important;
+ }
+ 
+ .nav-link {
+    padding: 0 !important;
+    color: inherit !important;
+    font-size: 1.05rem !important;
+ }
+ 
+ .navbar-nav .nav-item:last-child {
+    padding-right: 0 !important;
+ }
+ 
+ .nav-link:hover {
+    color: var(--primary) !important;
+ }
+ 
+ .navbar-toggler-icon {
+    background-image: url("data:image/svg+xml;charset=utf8,%3Csvg viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath stroke='rgb(58, 58, 58) ' stroke-width='2' stroke-linecap='round' stroke-miterlimit='10' d='M4 8h24M4 16h24M4 24h24'/%3E%3C/svg%3E") !important;
+ }
+ 
+ .navbar-toggler {
+    border-color: var(--black) !important;
+ }
+ 
+ .navbar-toggler:focus {
+    text-decoration: none !;
+    outline: none !important;
+    box-shadow: 0 0 0 0.25rem rgba(58, 58, 58, 0.25) !important;
+ }
+ 
+ .feature,
+ .member {
+    width: 30%;
+ }
+ 
+ .section-first {
+    margin-top: 15vh !important;
+    min-height: 85vh !important;
+ }
+ 
+ .section:not(.section-first) {
+    padding-top: 4.5rem !important;
+    padding-bottom: 4.5rem !important;
+ }
+ 
+ #team {
+    padding-top: 0 !important;
+ }
+ 
+ /* admin sidebar */
+ .sidebar {
+    height: 100vh;
+    width: 220px;
+    top: 0;
+    bottom: 0;
+    padding: 10px 13px;
+    transition: 0.4s;
+    background-color: var(--primary);
+ }
+ 
+ .sidebar.active {
+    width: 70px;
+ }
+ 
+ .sidebar-links {
+    padding: 0;
+    white-space: normal;
+    margin-top: 130px;
+    list-style-type: none;
+ }
+ 
+ .sidebar-link {
+    display: flex;
+    align-items: center;
+    font-weight: bold;
+    padding: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    color: var(--black);
+ }
+ 
+ .sidebar-link span {
+    font-size: 0.95rem !important;
+ }
+ 
+ .sidebar-link:hover,
+ .sidebar-link.active {
+    color: var(--white);
+ }
+ 
+ /* admin content */
+ .admin-contents {
+    width: 100%;
+    max-height: 100vh !important;
+    overflow-y: auto !important;
+ }
+ 
+ .footer-links {
+    padding: 0 !important;
+    margin: 0 !important;
+ }
+ 
+ .footer-links li {
+    list-style-type: none !important;
+ }
+ 
+ .footer-links li a {
+    text-decoration: none !important;
+ }
+ 
+ .footer-links li a:hover {
+    color: var(--white);
+    text-decoration: underline !important;
+ }
+ 
+ .footer-links li small {
+    color: var(--white) !important;
+ }
+ 
+ /* media queries */
+ @media (max-width: 992px) {
+    .section h1 {
+       font-size: 1.5rem;
+    }
+    
+    .section p,
+    .section li,
+    .section button {
+       font-size: 0.9rem;
+    }
+ 
+    .nav-link {
+       text-align: center !important;
+    }
+ 
+    .anna-img {
+       min-width: 200px;
+       width: 230px;
+    }
+ }
+ 
+ @media (max-width: 768px) {
+    .feature,
+    .member {
+       text-align: center;
+       width: 100%;
+    }
+ 
+    .feature > svg,
+    .feature > img,
+    .member > img {
+       display: block;
+       margin: 0 auto;
+    }
+ 
+    .page-not-found h1 {
+       font-size: 5rem !important;
+    }
+ }
+ 
+ @media (max-height: 500px), (max-width: 498px), (max-width: 992px) and (min-height: 500px) {
+    .navbar {
+       padding: 8px 0 0 0 !important;
+       min-height: initial !important;
+       z-index: 500 !important;
+    }
+ 
+    .section-first {
+       margin-top: 120px !important;
+       min-height: initial !important;
+    }
+ 
+    #about {
+       margin-top: 20px !important;
+    }
+ }
+ 

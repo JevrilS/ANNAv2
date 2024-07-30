@@ -1,10 +1,17 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import '../styles/style.css';
 import anna from '../assets/Anna_1.svg';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
 const Header = ({ navlinks, auth, handleLogout }) => {
+  useEffect(() => {
+    const bootstrap = require('bootstrap');
+    const dropdownElements = document.querySelectorAll('.dropdown-toggle');
+    dropdownElements.forEach(dropdownToggle => new bootstrap.Dropdown(dropdownToggle));
+  }, []);
+
   return (
     <nav className='navbar navbar-expand-lg bg-white fixed-top'>
       <div className='container'>
@@ -46,7 +53,6 @@ const Header = ({ navlinks, auth, handleLogout }) => {
                   </a>
                 </li>
               </>
-              
             ) : (
               <li className='nav-item dropdown'>
                 <a
@@ -60,8 +66,8 @@ const Header = ({ navlinks, auth, handleLogout }) => {
                   User
                 </a>
                 <ul className='dropdown-menu dropdown-menu-end' aria-labelledby='navbarDropdown'>
-                  <li><a className='dropdown-item' href='#account'>Account</a></li>
-                  <li><a className='dropdown-item' href='#result'>Result</a></li>
+                  <li><Link className='dropdown-item' to='/account'>Account</Link></li>
+                  <li><Link className='dropdown-item' to='/result'>Result</Link></li>
                   <li><button className='dropdown-item' onClick={handleLogout}>Logout</button></li>
                 </ul>
               </li>

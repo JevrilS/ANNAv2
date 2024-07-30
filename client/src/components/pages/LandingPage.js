@@ -1,15 +1,8 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect  } from 'react';
 import Header from '../Header';
 import Modal from '../Modal';
 import anna from '../../assets/Anna_1.svg';
 import anna2 from '../../assets/Anna_2.svg';
-import brainstrom from '../../assets/brainstorm.svg';
-import reymond from '../../assets/Reymond.svg';
-import ryan from '../../assets/Ryan.svg';
-import john from '../../assets/John.svg';
-import { isEmailValid } from '../../utils/validator';
-import { FaScroll } from 'react-icons/fa';
-import { MdRecommend } from 'react-icons/md';
 import { ChatbotContext } from '../../context/ChatbotContext';
 import { toast } from 'react-toastify';
 import Chatbot from '../chatbot/Chatbot';
@@ -18,12 +11,12 @@ import axios from 'axios';
 import $ from 'jquery';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min';
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
 window.$ = $;
 window.jQuery = $;
 
 const LandingPage = () => {
-   const [dropdownOpen, setDropdownOpen] = useState(false);
    const [auth, setAuth] = useState(false); // Add state for authentication
    const { setShowbot } = useContext(ChatbotContext);
 
@@ -44,17 +37,36 @@ const LandingPage = () => {
        feedback: ''
    });
 
-   const [showLoginModal, setShowLoginModal] = useState(false); // Define setShowLoginModal state
+   const [showLoginModal, setShowLoginModal] = useState(false);
+   const [showRegisterModal, setShowRegisterModal] = useState(false);
 
    const navlinks = [
       { text: 'Home', link: '/#home' },
-      { text: 'About', link: '/#about' },
       { text: 'Learn RIASEC', link: '/#learn-riasec' },
-      { text: 'The Team', link: '/#team' },
-      { text: 'Terms & Conditions', link: '/#terms-conditions' },
       { text: 'Feedback', link: '/#feedback' },
    ];
-
+   const handleModalHide = () => {
+      $('body').removeClass('modal-open');
+      $('.modal-backdrop').remove();
+    };
+    
+   useEffect(() => {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        setAuth(true);
+      }
+    }, []);
+    
+    useEffect(() => {
+      $('#modal-login').on('hidden.bs.modal', handleModalHide);
+      $('#modal-register').on('hidden.bs.modal', handleModalHide);
+    
+      return () => {
+        $('#modal-login').off('hidden.bs.modal', handleModalHide);
+        $('#modal-register').off('hidden.bs.modal', handleModalHide);
+      };
+    }, []);
+    
    const [inputs, setInputs] = useState({ feedbackEmail: '', feedback: '' });
    const { feedbackEmail, feedback } = inputs;
 
@@ -95,110 +107,98 @@ const LandingPage = () => {
       console.log('Data to be sent:', data);
 
       try {
-         if (feedbackData.feedbackEmail && feedbackData.feedback) {
-            if (isEmailValid(feedbackData.feedbackEmail)) {
-               const response = await axios.post('/auth/feedback/', feedbackData, {
-                  headers: {
-                     'Content-Type': 'application/json',
-                     'X-CSRFToken': getCookie('csrftoken')
-                  }
-               });
-               if (response.status === 200) {
-                  e.target.classList.remove('was-validated');
-                  setFeedbackData({ feedbackEmail: '', feedback: '' });
-                  toast.success(response.data.message);
-               } else {
-                  toast.error(response.data.message);
-               }
-            } else {
-               toast.error('Email is invalid!');
+         const response = await axios.post('/auth/register/', data, {
+            headers: {
+               'Content-Type': 'application/json',
+               'X-CSRFToken': getCookie('csrftoken')
             }
+         });
+         if (response.status === 201) {
+            toast.success(response.data.message);
+            setShowRegisterModal(false);
+            setShowLoginModal(true);
          } else {
-            toast.error('Please complete all required fields!');
+            toast.error(response.data.message);
          }
       } catch (err) {
          console.error(err.message);
+         toast.error('Registration failed. Please try again.');
       }
    };
 
    const handleLogin = async (e) => {
       e.preventDefault();
-      const csrftoken = getCookie('csrftoken');
+      
       const loginData = {
-         registerEmail: e.target.loginEmail.value,
-         password: e.target.loginPassword.value,
+          email: e.target.loginEmail.value,
+          password: e.target.loginPassword.value,
       };
-
+  
       console.log("Login Data:", loginData);
-
+  
       try {
-         const response = await axios.post(
-            'http://localhost:8000/auth/login/',
-            loginData,
-            {
-               headers: {
-                  'Content-Type': 'application/json',
-                  'X-CSRFToken': csrftoken
-               }
-            }
-         );
-
-         console.log("Login Response:", response);
-         console.log("Login Response Data:", response.data);
-
-         if (response.status === 200 && response.data) {
-            setAuth(true);
-            setShowLoginModal(false); // Hide the modal
-            $('#modal-login').modal('hide'); // Manually hide the modal
-            setTimeout(() => {
-              $('body').removeClass('modal-open'); // Remove the modal-open class
-              $('.modal-backdrop').remove(); // Remove the modal backdrop
-            }, 500); // Adjust the delay if necessary
-            toast.success("Login successful!");
-         } else {
-            console.warn("Unexpected response status or missing data:", response);
-            toast.error("Login failed. Please check your credentials.");
-         }
-      } catch (error) {
-         console.error("Login Error:", error);
-         toast.error("An error occurred during login. Please try again.");
+          const response = await axios.post(
+              'http://localhost:8000/auth/token/', // Ensure this URL matches your Django URL configuration
+              loginData,
+              {
+                  headers: {
+                      'Content-Type': 'application/json',
+                  },
+              }
+          );
+  
+          console.log("Login Response:", response);
+          console.log("Login Response Data:", response.data);
+  
+          if (response.status === 200 && response.data.access) {
+              setAuth(true);
+              localStorage.setItem('authToken', response.data.access); // Store token if needed
+              toast.success('Login successful!');
+          } else {
+              toast.error('Login failed. Please check your credentials.');
+          }
+      } catch (err) {
+          console.error("Login Error:", err.response ? err.response.data : err.message);
+          toast.error('Login failed. Please check your credentials.');
       }
-   };
+  };
+  
 
-   const handleLogout = () => {
-      setAuth(false);
-      toast.success("Logged out successfully!");
-   };
+  const handleLogout = () => {
+   localStorage.removeItem('authToken'); // Remove the token from localStorage
+   setAuth(false);
+   toast.success("Logged out successfully!");
+ };
 
-   const handleRegister = async (e) => {
-      e.preventDefault();
-      const csrftoken = getCookie('csrftoken');
-      console.log("Form Data: ", formData); // Log form data to console for debugging
+    const handleRegister = async (e) => {
+    e.preventDefault();
+    const csrftoken = getCookie('csrftoken');
+    console.log("Form Data: ", formData); // Log form data to console for debugging
 
-      try {
-         const response = await axios.post(
-            'http://localhost:8000/auth/register/',
-            formData,
-            {
-               headers: {
-                  'Content-Type': 'application/json',
-                  'X-CSRFToken': csrftoken
-               }
-            }
-         );
-         console.log(response.data);
-         if (response.status === 201) {
-            toast.success("User registered successfully");
-            $('#modal-register').modal('hide');
-            $('#modal-login').modal('show');
-         } else {
-            toast.error(response.data.message);
-         }
-      } catch (error) {
-         console.error(error.response.data);
-         toast.error(error.response.data.message);
+    try {
+      const response = await axios.post(
+        'http://localhost:8000/auth/register/',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+          }
+        }
+      );
+      console.log(response.data);
+      if (response.status === 201) {
+        toast.success("User registered successfully");
+        setShowRegisterModal(false); // Hide the modal
+        setShowLoginModal(true); // Show the login modal
+      } else {
+        toast.error(response.data.message);
       }
-   };
+    } catch (error) {
+      console.error(error.response.data);
+      toast.error(error.response.data.message);
+    }
+  };
 
    const getCookie = (name) => {
       let cookieValue = null;
@@ -245,83 +245,6 @@ const LandingPage = () => {
             </div>
          </section>
 
-         <section id='about' className='section mt-5 mt-md-0 bg-primary'>
-            <div className='container px-0 d-flex flex-column flex-md-row align-items-center justify-content-center flex-wrap'>
-               <div className='d-flex flex-column align-items-center feature p-3'>
-                  <MdRecommend className='icon-large mb-3' />
-                  <h2 className='h4 m-0 custom-heading text-center'>RIASEC &amp; Strand</h2>
-                  <p className='text-center'>Recommend degree programs based on RIASEC result and based on strand.</p>
-               </div>
-
-               <div className='d-flex flex-column  align-items-center feature p-3'>
-                  <img className='custom-icon-large mb-3' src={brainstrom} alt='awareness' />
-                  <h2 className='h4 m-0 custom-heading text-center'>Provide Awareness</h2>
-                  <p className='text-center'>Awareness on different degree programs in college</p>
-               </div>
-
-               <div className='d-flex flex-column align-items-center feature p-3'>
-                  <FaScroll className='icon-large mb-3' />
-                  <h2 className='h4 m-0 custom-heading text-center'>Cooperative Principle</h2>
-                  <p className='text-center'>Chatbot Anna is guided by the “Cooperative Principle.”</p>
-               </div>
-            </div>
-            <div className='container d-flex flex-column px-0'>
-               <h1 className='custom-heading my-5 text-center'>ABOUT</h1>
-               <div className='px-3 mb-3'>
-                  <h2 className='h4 custom-heading mb-4'>Anna</h2>
-                  <p>
-                     This is Anna, a web-based chatbot and degree program recommender chatbot. Anna helps you, a senior high school student who is
-                     looking for recommendations on what degree programs to take on college by getting your interest and your senior high school
-                     strand and sharing you information about existing degree programs out there. Anna will help you with your queries and feel free
-                     to ask Anna for recommendation, she will be very pleased to meeting you.
-                  </p>
-               </div>
-               <div className='px-3'>
-                  <h2 className='h4 custom-heading mb-4'>Research Study &amp; Problem</h2>
-                  <div>
-                     <h3 className='h6 custom-heading'>TITLE OF STUDY:</h3>
-                     <p>ANNA: A Web-based Chatbot for Career Planning following Cooperative Principle</p>
-                  </div>
-                  <div>
-                     <h3 className='h6 custom-heading'>FOCUS:</h3>
-                     <p>
-                        The study will be focusing on one area of career guidance, which is career planning. The term "Career planning" is a process
-                        in career guidance. It is the starting point for individuals to plan or foresee their career.
-                     </p>
-                     <p>
-                        It is essential for an individual to undergo career planning because carefully planning what career to take avoids the failure
-                        of achieving the career course. Also, it increases the student's confidence on what course they are trying to pursue.
-                     </p>
-                  </div>
-                  <div>
-                     <h3 className='h6 custom-heading'>PROBLEM:</h3>
-                     <p>
-                        Shifting and dropout is one of the prevalent problems faced by college students especially to those who are within the
-                        generation Z. One of the reasons why students shift and dropout in college is the poor choice of degree programs. They tend to
-                        copy the decisions of others and do not have sufficient career information.
-                     </p>
-                     <p>
-                        There were technological and non-technological solutions proposed, but the researchers found gaps. To fill in those identified
-                        gaps, the researchers developed Anna.
-                     </p>
-                     <div>
-                        <h3 className='h6 custom-heading'>OBJECTIVES:</h3>
-                        <p>
-                           The general objective of this study is to develop ANNA, a chatbot for career planning that would aid senior high school
-                           students by providing them with awareness of different degree program options and degree program selection. The specific
-                           objectives of the study are as follows:
-                        </p>
-                        <ul className='m-0 ps-4'>
-                           <li>Create a conversational scheme whose main goal is to provide a degree program recommendation to students</li>
-                           <li>Develop a chatbot that can provide degree program recommendations to senior high school students</li>
-                           <li>Test the application in terms of its acceptability and usability among its targeted users and deploy Anna.</li>
-                        </ul>
-                     </div>
-                  </div>
-               </div>
-            </div>
-         </section>
-
          <section id='learn-riasec' className='section bg-white'>
             <div className='container d-flex flex-column px-0'>
                <h1 className='custom-heading text-primary mb-5 text-center'>LEARN RIASEC</h1>
@@ -356,111 +279,6 @@ const LandingPage = () => {
                            Philippines and these universities believed that the RIASEC test really serves its purpose of helping students.
                         </p>
                         <p>Watch the video to learn more about the components of RIASEC.</p>
-                     </div>
-                  </div>
-               </div>
-            </div>
-         </section>
-
-         <section id='team' className='section bg-white'>
-            <div className='container d-flex flex-column px-0'>
-               <h1 className='custom-heading text-primary mb-5 text-center'>THE TEAM</h1>
-               <div className='d-flex flex-column flex-md-row justify-content-center align-items-center'>
-                  <div className='d-flex flex-column align-items-center member p-3'>
-                     <img className='mb-3' src={reymond} alt='reymond' width='145' />
-                     <p className='m-0 custom-heading text-break text-center'>Rey Mond Gomera</p>
-                     <p className='m-0 text-break text-center'>rgomera_190000000465@uic.edu.ph</p>
-                     <p className='m-0 text-center'>UI/UX DESIGNER | PROGRAMMER </p>
-                  </div>
-                  <div className='d-flex flex-column align-items-center member p-3'>
-                     <img className='mb-3' src={john} alt='reymond' width='145' />
-                     <p className='m-0 custom-heading text-break text-center'>John Michael Amto</p>
-                     <p className='m-0 text-break text-center'>jamto_190000000229@uic.edu.ph</p>
-                     <p className='m-0 text-center'>TECHNICAL WRITER | QA</p>
-                  </div>
-                  <div className='d-flex flex-column align-items-center member p-3'>
-                     <img className='mb-3' src={ryan} alt='reymond' width='145' />
-                     <p className='m-0 custom-heading text-break text-center'>Ryan Christian Hibaya</p>
-                     <p className='m-0 text-break text-center'>rhibaya_190000001021@uic.edu.ph</p>
-                     <p className='m-0 text-center'>PROJECT MANAGER | TECHNICAL WRITER | TESTER</p>
-                  </div>
-               </div>
-            </div>
-         </section>
-
-         <section id='terms-conditions' className='section bg-primary'>
-            <div className='container d-flex flex-column px-3  '>
-               <h1 className='custom-heading mb-5 text-center'>TERMS AND CONDITIONS</h1>
-               <div className='bg-grey rounded p-3 mb-3'>
-                  <p className='mb-1'>In using Anna, you agree to these terms and conditions:</p>
-                  <ol className='m-0' type='A'>
-                     <li>All responses and correspondences with Anna will be recorded.</li>
-                     <li>
-                        Information such as name (required), age (required), sex (required), senior high school strand (required), and related
-                        correspondence will be for the exclusive use of this study to continuously improve Anna.
-                     </li>
-                     <li>The data collected will be used for as long as it is needed for further analysis or investigation.</li>
-                     <li>You are free to exit the conversation with Anna if you feel the need to do so.</li>
-                  </ol>
-               </div>
-
-               <div className='bg-grey rounded p-3 mb-3'>
-                  <div>
-                     <h3 className='h6 custom-heading'>TITLE OF STUDY:</h3>
-                     <p>ANNA: A Web-based Chatbot for Career Planning following Cooperative Principle</p>
-                  </div>
-                  <div>
-                     <h3 className='h6 custom-heading'>RESEARCHERS:</h3>
-                     <p>Rey Mond Gomera, John Michael Amto, Ryan Christian Hibaya</p>
-                  </div>
-                  <div>
-                     <h3 className='h6 custom-heading'>USER GUIDELINES:</h3>
-                     <p>Anna could only converse in the English language. It is then recommended that your responses be in English.</p>
-                     <p>
-                        If the user is idle for more than 20 minutes, Anna would end the conversation by replying with phrases like, "I think I lost
-                        you there. Please do reach out to me again anytime. I'll be here 😊". If this happens, greeting Anna with words like "Hello",
-                        or "Hi", will start a new conversation.
-                     </p>
-                     <p className='mb-1'>
-                        If any problems occur during the conversation process, or you have any suggestions or comments you would like to share with
-                        the researchers, please leave a feedback
-                        <a className='text-primary ms-1' href='/#feedback'>
-                           here
-                        </a>
-                        . Your insights and suggestions would help improve our project.
-                     </p>
-                  </div>
-                  <div>
-                     <h3 className='h6 custom-heading'>CONFIDENTIALITY:</h3>
-                     <p>
-                        The information that Anna will be obtaining throughout the conversation will remain confidential to protect your rights or
-                        welfare.
-                     </p>
-                     <p>
-                        RA 10173 or the Data Privacy Act protects individuals from unauthorized processing of personal information. To ensure that
-                        your information is protected, the researchers will follow this law to keep your information safe and confidential.
-                     </p>
-                  </div>
-                  <div>
-                     <h3 className='h6 custom-heading'>DEFINITIONS:</h3>
-                     <p>
-                        Throughout the conversation, Anna will be responding to possible jargons. To ensure that you understand Anna, the definition
-                        of words will be provided:
-                     </p>
-
-                     <div className='ms-4'>
-                        <p className='mb-1'>
-                           <span className='h6 custom-heading d-inline-block'>Degree Program</span> - A class that a college of university offers to
-                           students. (Bachelor of Science in Information Technology, etc..)
-                        </p>
-                        <p className='mb-1'>
-                           <span className='h6 custom-heading d-inline-block'>RIASEC</span> - A personality test that asks about your interest,
-                           skills, ability, and aspirations which will help you decide on what career to pursue based on these attributes.
-                        </p>
-                        <p className='mb-1'>
-                           <span className='h6 custom-heading d-inline-block'>Senior high school strand</span> - Disciplines that are offered by
-                           schools to senior high school students that would prepare them for college.
-                        </p>
                      </div>
                   </div>
                </div>
@@ -533,11 +351,7 @@ const LandingPage = () => {
                               <small>About</small>
                            </a>
                         </li>
-                        <li>
-                           <a href='/#team'>
-                              <small>The Team</small>
-                           </a>
-                        </li>
+                      
                         <li>
                            <a href='/#terms-conditions'>
                               <small>Terms & Conditions</small>
@@ -576,88 +390,110 @@ const LandingPage = () => {
          </footer>
 
        
-         {/* Login Modal */}
-   {/* Login Modal */}
-         <Modal title='Login' target='modal-login' size='modal-md'>
+                  <Modal
+         title='Login'
+         target='modal-login'
+         size='modal-lg' // Change the size to large
+         show={showLoginModal}
+         onHide={() => setShowLoginModal(false)}
+         >
          <form onSubmit={handleLogin}>
-            <div className='mb-3'>
-               <label htmlFor='loginEmail' className='form-label'>Email address</label>
-               <input type='email' className='form-control' id='loginEmail' required />
+            <div className='d-flex flex-column align-items-center'>
+               <img src={anna} alt='Anna' className='mb-3' style={{ width: '200px', height: '200px' }} /> {/* Adjusted image size */}
+               <h2 className='mb-3'>Sign In</h2>
             </div>
-            <div className='mb-3'>
-               <label htmlFor='loginPassword' className='form-label'>Password</label>
+            <div className='mb-3 input-group'>
+               <span className='input-group-text'><i className='fas fa-id-card'></i></span>
+               <input type='email' className='form-control' id='loginEmail' required />            </div>
+            <div className='mb-3 input-group'>
+               <span className='input-group-text'><i className='fas fa-lock'></i></span>
                <input type='password' className='form-control' id='loginPassword' required />
+               </div>
+            <div className='d-flex justify-content-between w-100'>
+               <div>
+               <a href='#forgot-password' className='text-decoration-none'>Forgot Password?</a>
+               </div>
             </div>
             <div className='d-flex justify-content-center mt-3'>
-            <button className='btn btn-primary' data-bs-dismiss='modal'> Login </button>
+               <button className='btn btn-primary' data-bs-dismiss='modal'> Login </button>
+            </div>
+            <div className='text-center mt-3'>
+               <small>Don't have an account? <button type="button" className='btn btn-link' onClick={() => { setShowLoginModal(false); setShowRegisterModal(true); }}>Sign Up</button></small>
             </div>
          </form>
          </Modal>
 
 
-         {/* Register Modal */}
-         <Modal title='Register' target='modal-register' size='modal-md'>
-    <form onSubmit={handleRegister}>
-        <div className='mb-3 input-group'>
+      <Modal
+        title='Register'
+        target='modal-register'
+        size='modal-md'
+        show={showRegisterModal}
+        onHide={() => setShowRegisterModal(false)}
+      >
+        <form onSubmit={handleRegister}>
+          <div className='mb-3 input-group'>
             <span className='input-group-text'><i className='fas fa-id-card'></i></span>
             <input type='text' className='form-control' id='id_no' placeholder='ID No.' value={formData.id_no} onChange={handleChange} required />
-        </div>
-        <div className='mb-3 input-group'>
+          </div>
+          <div className='mb-3 input-group'>
             <span className='input-group-text'><i className='fas fa-user'></i></span>
             <input type='text' className='form-control' id='full_name' placeholder='Full Name' value={formData.full_name} onChange={handleChange} required />
-        </div>
-        <div className='mb-3 input-group'>
+          </div>
+          <div className='mb-3 input-group'>
             <span className='input-group-text'><i className='fas fa-envelope'></i></span>
             <input type='email' className='form-control' id='registerEmail' placeholder='Email' value={formData.registerEmail} onChange={handleChange} required />
-        </div>
-        <div className='mb-3 input-group'>
+          </div>
+          <div className='mb-3 input-group'>
             <span className='input-group-text'><i className='fas fa-lock'></i></span>
             <input type='password' className='form-control' id='password' placeholder='Password' value={formData.password} onChange={handleChange} required />
-        </div>
-        <div className='mb-3 input-group'>
+          </div>
+          <div className='mb-3 input-group'>
             <span className='input-group-text'><i className='fas fa-lock'></i></span>
             <input type='password' className='form-control' id='confirm_password' placeholder='Confirm Password' value={formData.confirm_password} onChange={handleChange} required />
-        </div>
-        <div className='mb-3 input-group'>
+          </div>
+          <div className='mb-3 input-group'>
             <span className='input-group-text'><i className='fas fa-school'></i></span>
             <input type='text' className='form-control' id='school' placeholder='School' value={formData.school} onChange={handleChange} required />
-        </div>
-        <div className='mb-3 input-group'>
+          </div>
+          <div className='mb-3 input-group'>
             <span className='input-group-text'><i className='fas fa-phone'></i></span>
             <input type='text' className='form-control' id='mobile_no' placeholder='Mobile No.' value={formData.mobile_no} onChange={handleChange} required />
-        </div>
-        <div className='mb-3 input-group'>
+          </div>
+          <div className='mb-3 input-group'>
             <span className='input-group-text'><i className='fas fa-venus-mars'></i></span>
             <select className='form-control' id='sex' value={formData.sex} onChange={handleChange} required>
-            <option value='' hidden>Sex</option>
-            <option value='Male'>Male</option>
-                <option value='Female'>Female</option>
+              <option value='' hidden>Sex</option>
+              <option value='Male'>Male</option>
+              <option value='Female'>Female</option>
             </select>
-        </div>
-        <div className='mb-3 input-group'>
+          </div>
+          <div className='mb-3 input-group'>
             <span className='input-group-text'><i className='fas fa-graduation-cap'></i></span>
             <select className='form-control' id='strand' value={formData.strand} onChange={handleChange} required>
-            <option value='' hidden>Strand</option>
-            <option value='ABM'>ABM</option>
-            <option value='ARTSDESIGN'>ARTS&DESIGN</option>
-                <option value='STEM'>STEM</option>
-                <option value='HUMMS'>HUMMS</option>
-                <option value='TVL'>TVL</option>
+              <option value='' hidden>Strand</option>
+              <option value='ABM'>ABM</option>
+              <option value='ARTSDESIGN'>ARTS&DESIGN</option>
+              <option value='STEM'>STEM</option>
+              <option value='HUMMS'>HUMMS</option>
+              <option value='TVL'>TVL</option>
             </select>
-        </div>
-        <div className='mb-3 input-group'>
+          </div>
+          <div className='mb-3 input-group'>
             <span className='input-group-text'><i className='fas fa-level-up-alt'></i></span>
             <select className='form-control' id='grade_level' value={formData.grade_level} onChange={handleChange} required>
-            <option value='' hidden>Grade Level</option>
-            <option value='11'>Grade 11</option>
-            <option value='12'>Grade 12</option>
+              <option value='' hidden>Grade Level</option>
+              <option value='11'>Grade 11</option>
+              <option value='12'>Grade 12</option>
             </select>
-        </div>
-        <button type='submit' className='btn btn-primary'>Register</button>
-    </form>
-</Modal>
-      </>
-   );
+          </div>
+          <div className="d-flex justify-content-center w-100">
+            <button type='submit' className='btn btn-primary'>Register</button>
+          </div>
+        </form>
+      </Modal>
+    </>
+  );
 };
 
 export default LandingPage;
