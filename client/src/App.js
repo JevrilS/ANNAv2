@@ -6,7 +6,7 @@ import AccountDetails from './components/pages/AccountDetails';
 import { useEffect, useState, useRef } from 'react';
 import { ChatbotContext } from './context/ChatbotContext';
 import { UserContext } from './context/UserContext';
-import AdminLogin from './components/pages/AdminLogin';
+import AdminLogin from './components/pages/GuidanceLogin';
 import LandingPage from './components/pages/LandingPage';
 import Admin from './components/pages/Admin';
 import Dashboard from './components/pages/Dashboard';
