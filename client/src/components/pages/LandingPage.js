@@ -441,13 +441,14 @@ const LandingPage = () => {
          </form>
          </Modal>
 
-                    <Modal
-            title='Register'
-            target='modal-register'
-            size='modal-md'
-            show={showRegisterModal}
-            onHide={() => setShowRegisterModal(false)}
-            >
+         <Modal
+    title='Register'
+    target='modal-register'
+    size='modal-md'
+    show={showRegisterModal}
+    onHide={() => setShowRegisterModal(false)}
+    dialogClassName="modal-dialog-centered"
+>
             <form onSubmit={handleRegister}>
                 <div className='mb-3 input-group'>
                 <span className='input-group-text'><i className='fas fa-id-card'></i></span>
