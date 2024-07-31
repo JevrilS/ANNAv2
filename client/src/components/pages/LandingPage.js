@@ -408,38 +408,41 @@ const LandingPage = () => {
          </footer>
 
        
-                  <Modal
-         title='Login'
-         target='modal-login'
-         size='modal-lg' // Change the size to large
-         show={showLoginModal}
-         onHide={() => setShowLoginModal(false)}
-         >
-         <form onSubmit={handleLogin}>
-            <div className='d-flex flex-column align-items-center'>
-               <img src={anna} alt='Anna' className='mb-3' style={{ width: '200px', height: '200px' }} /> {/* Adjusted image size */}
-               <h2 className='mb-3'>Sign In</h2>
+         <Modal
+    title='Login'
+    target='modal-login'
+    size='modal-lg'
+    show={showLoginModal}
+    onHide={() => setShowLoginModal(false)}
+>
+    <form onSubmit={handleLogin}>
+        <div className='d-flex flex-column align-items-center'>
+            <img src={anna} alt='Anna' className='mb-3' style={{ width: '200px', height: '200px' }} />
+            <h2 className='mb-3'>Sign In</h2>
+        </div>
+        <div className='mb-3 input-group'>
+            <span className='input-group-text'><i className='fas fa-id-card'></i></span>
+            <input type='email' className='form-control' id='loginEmail' required />
+        </div>
+        <div className='mb-3 input-group'>
+            <span className='input-group-text'><i className='fas fa-lock'></i></span>
+            <input type='password' className='form-control' id='loginPassword' required />
+        </div>
+        <div className='d-flex justify-content-between w-100'>
+            <div>
+                <a href='#changePasswordModal' data-bs-toggle='modal' className='text-decoration-none'>Forgot Password?</a>
             </div>
-            <div className='mb-3 input-group'>
-               <span className='input-group-text'><i className='fas fa-id-card'></i></span>
-               <input type='email' className='form-control' id='loginEmail' required />            </div>
-            <div className='mb-3 input-group'>
-               <span className='input-group-text'><i className='fas fa-lock'></i></span>
-               <input type='password' className='form-control' id='loginPassword' required />
-               </div>
-            <div className='d-flex justify-content-between w-100'>
-               <div>
-               <a href='#forgot-password' className='text-decoration-none'>Forgot Password?</a>
-               </div>
-            </div>
-            <div className='d-flex justify-content-center mt-3'>
-               <button className='btn btn-primary' data-bs-dismiss='modal'> Login </button>
-            </div>
-            <div className='text-center mt-3'>
-               <small>Don't have an account? <button type="button" className='btn btn-link' onClick={() => { setShowLoginModal(false); setShowRegisterModal(true); }}>Sign Up</button></small>
-            </div>
-         </form>
-         </Modal>
+        </div>
+        <div className='d-flex justify-content-center mt-3'>
+            <button className='btn btn-primary' data-bs-dismiss='modal'>Login</button>
+        </div>
+        <div className='text-center mt-3'>
+            <small>Don't have an account? <button type="button" className='btn btn-link' onClick={() => { setShowLoginModal(false); setShowRegisterModal(true); }}>Sign Up</button></small>
+        </div>
+    </form>
+</Modal>
+
+
 
          <Modal
     title='Register'

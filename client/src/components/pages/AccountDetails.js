@@ -19,10 +19,10 @@ function AccountDetails() {
     sex: '',
     grade_level: ''
   });
+  const [schools, setSchools] = useState([]);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  const [schools, setSchools] = useState([]);
   const [passwordsMatch, setPasswordsMatch] = useState(true);
 
   useEffect(() => {
@@ -83,15 +83,20 @@ function AccountDetails() {
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
+  
     if (!passwordsMatch) {
       toast.error("New passwords do not match!");
       return;
     }
-
+  
     try {
       const response = await axios.put(
         '/auth/change-password/',
-        { currentPassword, newPassword },
+        { 
+          current_password: currentPassword, 
+          new_password: newPassword, 
+          confirm_new_password: confirmNewPassword 
+        },
         {
           headers: {
             'Content-Type': 'application/json',
@@ -99,7 +104,7 @@ function AccountDetails() {
           }
         }
       );
-
+  
       if (response.status === 200) {
         toast.success('Password updated successfully');
         const modal = document.getElementById('changePasswordModal');
@@ -111,13 +116,16 @@ function AccountDetails() {
       }
     } catch (error) {
       console.error('Error updating password:', error.response ? error.response.data : error.message);
-      if (error.response && error.response.status === 401) {
+      if (error.response && error.response.status === 400) {
+        toast.error(error.response.data.message || 'Invalid request data');
+      } else if (error.response && error.response.status === 401) {
         toast.error('Incorrect current password. Please try again.');
       } else {
         toast.error(error.response && error.response.data ? error.response.data.message : 'Error updating password');
       }
     }
   };
+  
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -128,12 +136,18 @@ function AccountDetails() {
           Authorization: `Bearer ${localStorage.getItem('authToken')}`
         }
       });
-      toast.success('User data updated successfully');
+
+      if (response.status === 200) {
+        toast.success('Account details updated successfully');
+      } else {
+        toast.error('Failed to update account details');
+      }
     } catch (error) {
-      console.error('Error updating user data:', error);
-      toast.error('Failed to update user data');
+      console.error('Error updating account details:', error.response ? error.response.data : error.message);
+      toast.error('Error updating account details');
     }
   };
+
 
   return (
     <div className="container-fluid">
@@ -229,38 +243,36 @@ function AccountDetails() {
 
 
      {/* Change Password Modal */}
-  <div className="modal fade" id="changePasswordModal" tabIndex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
-    <div className="modal-dialog">
-      <div className="modal-content">
-        <div className="modal-header">
-          <div className="w-100 d-flex justify-content-center">
-            <h5 className="modal-title" id="changePasswordModalLabel">Change Password</h5>
+     <div className="modal fade" id="changePasswordModal" tabIndex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
+        <div className="modal-dialog modal-lg">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title" id="changePasswordModalLabel">Change Password</h5>
+              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div className="modal-body">
+              <form onSubmit={handlePasswordChange}>
+                <div className="mb-3">
+                  <label htmlFor="currentPassword" className="form-label">Current Password</label>
+                  <input type="password" className="form-control" id="currentPassword" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
+                  </div>
+                <div className="mb-3">
+                  <label htmlFor="newPassword" className="form-label">New Password</label>
+                  <input type="password" className="form-control" id="newPassword" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+                  </div>
+                <div className="mb-3">
+                  <label htmlFor="confirmNewPassword" className="form-label">Confirm New Password</label>
+                  <input type="password" className="form-control" id="confirmNewPassword" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} required />
+                  {!passwordsMatch && <div className="text-danger">Passwords do not match</div>}
+                </div>
+                <button type="submit" className="btn btn-primary w-100">Change Password</button>
+              </form>
+            </div>
           </div>
-          <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div className="modal-body">
-          <form onSubmit={handlePasswordChange}>
-            <div className="mb-3">
-              <label htmlFor="currentPassword" className="form-label">Current Password</label>
-              <input type="password" className="form-control" id="currentPassword" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
-            </div>
-            <div className="mb-3">
-              <label htmlFor="newPassword" className="form-label">New Password</label>
-              <input type="password" className="form-control" id="newPassword" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
-            </div>
-            <div className="mb-3">
-              <label htmlFor="confirmNewPassword" className="form-label">Confirm New Password</label>
-              <input type="password" className="form-control" id="confirmNewPassword" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} required />
-              {!passwordsMatch && <div className="text-danger">Passwords do not match</div>}
-            </div>
-            <button type="submit" className="btn btn-primary w-100">Change Password</button>
-          </form>
         </div>
       </div>
     </div>
-  </div>
-</div>
-);
+  );
 }
 
 export default AccountDetails;
