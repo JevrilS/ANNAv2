@@ -1,5 +1,29 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django_tenants.models import TenantMixin, DomainMixin
+
+class Client(TenantMixin):
+    """
+    Tenant model which inherits from TenantMixin to implement
+    a schema for each tenant.
+    """
+    name = models.CharField(max_length=100)
+    created_on = models.DateField(auto_now_add=True)
+
+    # Required: Define which tables should be shared among all tenants
+    auto_create_schema = True
+
+
+class Domain(DomainMixin):
+    """
+    Domain model which inherits from DomainMixin to specify
+    the domain related to each tenant.
+    """
+    domain = models.CharField(max_length=100, unique=True)
+    tenant = models.ForeignKey(Client, related_name='domains', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.domain
 
 class MyUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -14,17 +38,30 @@ class MyUserManager(BaseUserManager):
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-
         return self.create_user(email, password, **extra_fields)
 
+
+# Ensure this model is recognized in the 'shared' apps or 'public' schema.
 class School(models.Model):
+    """
+    Model to represent schools accessible in the public schema.
+    """
     school_des = models.CharField(max_length=255)
     school_add = models.CharField(max_length=255)
-
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='schools')
     class Meta:
         db_table = 'schools'
+        app_label = 'custom_auth'  # Ensure the app_label matches the installed app name
+        # This makes sure the model is recognized under the app's name
+
+    def __str__(self):
+        return self.school_des
+
 
 class User(AbstractBaseUser, PermissionsMixin):
+    """
+    Custom user model for tenants.
+    """
     id_no = models.CharField(max_length=20, unique=True)
     full_name = models.CharField(max_length=255)
     email = models.EmailField(unique=True)
@@ -61,14 +98,40 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.email
 
 class Feedback(models.Model):
+    """
+    Model to handle feedback submitted by users.
+    """
     email = models.EmailField()
     feedback = models.TextField()
 
     def __str__(self):
         return self.email
-    
+
+
 class UserProfile(models.Model):
+    """
+    Model to store additional user profile information.
+    """
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
     def __str__(self):
         return self.user.email
+
+
+# Public schema models
+class PublicUser(models.Model):
+    """
+    Model to handle public users accessible in the public schema.
+    """
+    id_no = models.CharField(max_length=20, unique=True)
+    full_name = models.CharField(max_length=255)
+    email = models.EmailField(unique=True)
+    school = models.ForeignKey(School, on_delete=models.SET_NULL, null=True)
+    password = models.CharField(max_length=128)
+
+    class Meta:
+        db_table = 'public_users'
+        app_label = 'custom_auth'  # Ensure this matches your app name for shared models
+
+    def __str__(self):
+        return self.email

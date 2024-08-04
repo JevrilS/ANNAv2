@@ -12,6 +12,7 @@
       "caniuse-lite": "^1.0.30001643",
       "chart.js": "^3.9.1",
       "chartjs-plugin-datalabels": "^2.1.0",
+      "darkmode-js": "^1.5.7",
       "firebase": "^9.9.1",
       "html-react-parser": "^3.0.6",
       "jquery": "^3.7.1",
@@ -60,5 +61,5 @@
    "devDependencies": {
       "http-proxy-middleware": "^2.0.6"
    },
-   "proxy": "http://127.0.0.1:8000"
+   "proxy": "http://localhost:8000"
 }

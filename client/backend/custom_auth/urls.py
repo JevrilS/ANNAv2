@@ -1,5 +1,16 @@
+# custom_auth/urls.py
+
 from django.urls import path
-from .views import register, FeedbackView, home_view, is_varify, login_view, UserDetailView, ChangePasswordView, SchoolListView
+from .views import (
+    register,
+    FeedbackView,
+    home_view,
+    is_varify,
+    login_view,
+    UserDetailView,
+    ChangePasswordView,
+    SchoolListView,  # Import the class, not a function
+)
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
@@ -12,6 +23,5 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('user/', UserDetailView.as_view(), name='user-detail'),
     path('change-password/', ChangePasswordView.as_view(), name='change-password'),
-    path('schools/', SchoolListView.as_view(), name='school-list'),
-
+    path('schools/', SchoolListView.as_view(), name='school-list'),  # This should call the as_view() method
 ]

@@ -9,8 +9,10 @@ https://docs.djangoproject.com/en/5.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
+
 import os
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,16 +26,19 @@ SECRET_KEY = 'django-insecure-0(lkz%-&m^)ow+n&vk=se9!@rg@2#&gu3pe6&40_q-j)wvbltj
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'UIC.localhost', 'school1.localhost', 'uic.localhost', 'school1.localhost:3000']
 
 # Django REST framework settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.AllowAny',  # Require authentication by default
+    ),
 }
-from datetime import timedelta
 
+# JWT settings
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
@@ -44,12 +49,16 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
 }
+
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://school1.localhost:3000",  # Add tenant-specific domains here
+    "http://school1.localhost:8000",
+    "http://uic.localhost:8000",  # Add tenant-specific domains here
+    "http://uic.localhost:3000",
 ]
-
 CORS_ALLOW_HEADERS = [
     "accept",
     "accept-encoding",
@@ -62,19 +71,50 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 
-# Application definition
-INSTALLED_APPS = [
+CORS_ALLOW_METHODS = [
+    'GET',
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+    'OPTIONS',
+]
+CORS_ALLOW_CREDENTIALS = True 
+
+# Applications listed in SHARED_APPS will be synced to the public schema
+# SHARED_APPS
+SHARED_APPS = (
+    'django_tenants',  # mandatory
+    'django.contrib.contenttypes',  # mandatory
+
+    # Add any other apps that should be available to all tenants
     'django.contrib.admin',
     'django.contrib.auth',
-    'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework',
-    'rest_framework_simplejwt',
-    'corsheaders',
-    'custom_auth',
-]
+    'custom_auth', 
+    'corsheaders',  # Your custom app should be here
+    # any other shared apps
+)
+
+# TENANT_APPS
+TENANT_APPS = (
+    # Do not repeat 'django.contrib.contenttypes' here
+    # Tenant-specific apps
+    'django.contrib.auth',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'custom_auth',  # Include here as well for tenant-specific operations
+)
+
+# Combine shared and tenant apps, removing duplicates
+INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
+
+# Tenant configurations
+TENANT_MODEL = "custom_auth.Client"  # app.Model
+TENANT_DOMAIN_MODEL = "custom_auth.Domain"  # app.Model
 
 # Logging configuration
 LOGGING = {
@@ -93,6 +133,8 @@ LOGGING = {
 
 # Middleware configuration
 MIDDLEWARE = [
+    'django_tenants.middleware.main.TenantMainMiddleware',  # Must be first
+    'corsheaders.middleware.CorsMiddleware',  # Handles CORS
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -100,7 +142,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -137,7 +178,7 @@ AUTH_USER_MODEL = 'custom_auth.User'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django_tenants.postgresql_backend',
         'NAME': 'ANNA',
         'USER': 'postgres',
         'PASSWORD': '1234',
@@ -145,6 +186,10 @@ DATABASES = {
         'PORT': '5432',  # default PostgreSQL port
     }
 }
+
+DATABASE_ROUTERS = (
+    'django_tenants.routers.TenantSyncRouter',
+)
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
@@ -180,3 +225,5 @@ STATIC_URL = 'static/'
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+PUBLIC_DOMAIN = 'localhost:8000'
+ADMIN_URL = 'admin/'
