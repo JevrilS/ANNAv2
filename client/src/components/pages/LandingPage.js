@@ -1,5 +1,5 @@
 // LandingPage.js
-
+import '@fortawesome/fontawesome-free/css/all.min.css';
 import React, { useContext, useState, useEffect } from 'react';
 import Header from '../Header';
 import Modal from '../Modal';
@@ -402,212 +402,257 @@ const LandingPage = () => {
         <small className='w-100 d-block mt-5 p-2 text-center bg-primary-dark'>ANNA | Copyright © 2022</small>
       </footer>
 
-      <Modal
-        title='Login'
-        target='modal-login'
-        size='modal-lg'
-        show={showLoginModal}
-        onHide={() => setShowLoginModal(false)}
-      >
-        <form onSubmit={handleLogin}>
-          <div className='d-flex flex-column align-items-center'>
-            <img src={anna} alt='Anna' className='mb-3' style={{ width: '200px', height: '200px' }} />
-            <h2 className='mb-3'>Sign In</h2>
-          </div>
-          <div className='mb-3 input-group'>
-            <span className='input-group-text'>
-              <i className='fas fa-id-card'></i>
-            </span>
-            <input type='email' className='form-control' id='loginEmail' required />
-          </div>
-          <div className='mb-3 input-group'>
-            <span className='input-group-text'>
-              <i className='fas fa-lock'></i>
-            </span>
-            <input type='password' className='form-control' id='loginPassword' required />
-          </div>
-          <div className='d-flex justify-content-between w-100'>
-            <div>
-              <a href='#changePasswordModal' data-bs-toggle='modal' className='text-decoration-none'>
-                Forgot Password?
-              </a>
-            </div>
-          </div>
-          <div className='d-flex justify-content-center mt-3'>
-            <button className='btn btn-primary' data-bs-dismiss='modal'>
-              Login
+      return (
+        <Modal
+      title='Login'
+      target='modal-login'
+      size='modal-lg'
+      show={showLoginModal}
+      onHide={() => setShowLoginModal(false)}
+      dialogClassName='login-modal' // Apply custom class for styling
+    >
+      <form onSubmit={handleLogin} className='login-form'>
+        <div className='d-flex flex-column align-items-center'>
+          <img src={anna} alt='Anna' className='mb-3' style={{ width: '150px', height: '150px' }} />
+          <h2 className='mb-3 modal-title'>Sign In</h2>
+        </div>
+        <div className='mb-3 input-group'>
+          <span className='input-group-text'>
+            <i className='fas fa-envelope'></i>
+          </span>
+          <input
+            type='email'
+            className='form-control'
+            id='loginEmail'
+            placeholder='Email'
+            required
+          />
+        </div>
+        <div className='mb-3 input-group'>
+          <span className='input-group-text'>
+            <i className='fas fa-lock'></i>
+          </span>
+          <input
+            type='password'
+            className='form-control'
+            id='loginPassword'
+            placeholder='Password'
+            required
+          />
+        </div>
+        <div className='d-flex justify-content-center w-100'>
+          <a
+            href='#changePasswordModal'
+            data-bs-toggle='modal'
+            className='forgot-password-link'
+          >
+            Forgot Password?
+          </a>
+        </div>
+        <div className='d-flex justify-content-center mt-3'>
+          <button className='btn btn-primary' type='submit'>
+            Login
+          </button>
+        </div>
+        <div className='text-center mt-3 dont-have-account'>
+          <span>
+            Don't have an account?
+            <button
+              type='button'
+              className='btn btn-link signup-button'
+              onClick={() => {
+                setShowLoginModal(false);
+                setShowRegisterModal(true);
+              }}
+            >
+              Sign Up
             </button>
-          </div>
-          <div className='text-center mt-3'>
-            <small>
-              Don't have an account?{' '}
-              <button
-                type='button'
-                className='btn btn-link'
-                onClick={() => {
-                  setShowLoginModal(false);
-                  setShowRegisterModal(true);
-                }}
-              >
-                Sign Up
-              </button>
-            </small>
-          </div>
-        </form>
-      </Modal>
+          </span>
+        </div>
+      </form>
+    </Modal>
 
-      <Modal
-        title='Register'
-        target='modal-register'
-        size='modal-md'
-        show={showRegisterModal}
-        onHide={() => setShowRegisterModal(false)}
-        dialogClassName='modal-dialog-centered'
-      >
-        <form onSubmit={handleRegister}>
-          <div className='mb-3 input-group'>
-            <span className='input-group-text'>
-              <i className='fas fa-id-card'></i>
-            </span>
-            <input
-              type='text'
-              className='form-control'
-              id='id_no'
-              placeholder='ID No.'
-              value={formData.id_no}
-              onChange={handleChange}
-              required
-            />
-          </div>
-          <div className='mb-3 input-group'>
-            <span className='input-group-text'>
-              <i className='fas fa-user'></i>
-            </span>
-            <input
-              type='text'
-              className='form-control'
-              id='full_name'
-              placeholder='Full Name'
-              value={formData.full_name}
-              onChange={handleChange}
-              required
-            />
-          </div>
-          <div className='mb-3 input-group'>
-            <span className='input-group-text'>
-              <i className='fas fa-envelope'></i>
-            </span>
-            <input
-              type='email'
-              className='form-control'
-              id='email'
-              placeholder='Email'
-              value={formData.email}
-              onChange={handleChange}
-              required
-            />
-          </div>
-          <div className='mb-3 input-group'>
-            <span className='input-group-text'>
-              <i className='fas fa-lock'></i>
-            </span>
-            <input
-              type='password'
-              className='form-control'
-              id='password'
-              placeholder='Password'
-              value={formData.password}
-              onChange={handleChange}
-              required
-            />
-          </div>
-          <div className='mb-3 input-group'>
-            <span className='input-group-text'>
-              <i className='fas fa-lock'></i>
-            </span>
-            <input
-              type='password'
-              className='form-control'
-              id='confirm_password'
-              placeholder='Confirm Password'
-              value={formData.confirm_password}
-              onChange={handleChange}
-              required
-            />
-          </div>
-          <div className='mb-3 input-group'>
-            <span className='input-group-text'>
-              <i className='fas fa-school'></i>
-            </span>
-          <select className='form-control' id='school_id' value={formData.school_id} onChange={handleChange} required>
-          <option value='' hidden>Select School</option>
-          {schools.map((school) => (
-            <option key={school.id} value={school.id}>
-              {school.school_des}
+    <Modal
+      title='Register'
+      target='modal-register'
+      size='modal-md'
+      show={showRegisterModal}
+      onHide={() => setShowRegisterModal(false)}
+      dialogClassName='modal-dialog-centered register-modal' // Apply custom class for styling
+    >
+      <form onSubmit={handleRegister} className='register-form'>
+        <div className='d-flex flex-column align-items-center'>
+          <h2 className='mb-3 modal-title'>Register</h2>
+        </div>
+        <div className='mb-3 input-group'>
+          <span className='input-group-text'>
+            <i className='fas fa-id-card'></i>
+          </span>
+          <input
+            type='text'
+            className='form-control'
+            id='id_no'
+            placeholder='ID No.'
+            value={formData.id_no}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        <div className='mb-3 input-group'>
+          <span className='input-group-text'>
+            <i className='fas fa-user'></i>
+          </span>
+          <input
+            type='text'
+            className='form-control'
+            id='full_name'
+            placeholder='Full Name'
+            value={formData.full_name}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        <div className='mb-3 input-group'>
+          <span className='input-group-text'>
+            <i className='fas fa-envelope'></i>
+          </span>
+          <input
+            type='email'
+            className='form-control'
+            id='email'
+            placeholder='Email'
+            value={formData.email}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        <div className='mb-3 input-group'>
+          <span className='input-group-text'>
+            <i className='fas fa-key'></i>
+          </span>
+          <input
+            type='password'
+            className='form-control'
+            id='password'
+            placeholder='Password'
+            value={formData.password}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        <div className='mb-3 input-group'>
+          <span className='input-group-text'>
+            <i className='fas fa-key'></i>
+          </span>
+          <input
+            type='password'
+            className='form-control'
+            id='confirm_password'
+            placeholder='Confirm Password'
+            value={formData.confirm_password}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        <div className='mb-3 input-group'>
+          <span className='input-group-text'>
+            <i className='fas fa-school'></i>
+          </span>
+          <select
+            className='form-control'
+            id='school_id'
+            value={formData.school_id}
+            onChange={handleChange}
+            required
+          >
+            <option value='' hidden>
+              Select School
             </option>
-          ))}
-        </select>
-          </div>
-          <div className='mb-3 input-group'>
-            <span className='input-group-text'>
-              <i className='fas fa-phone'></i>
-            </span>
-            <input
-              type='text'
-              className='form-control'
-              id='mobile_no'
-              placeholder='Mobile No.'
-              value={formData.mobile_no}
-              onChange={handleChange}
-              required
-            />
-          </div>
-          <div className='mb-3 input-group'>
-            <span className='input-group-text'>
-              <i className='fas fa-venus-mars'></i>
-            </span>
-            <select className='form-control' id='sex' value={formData.sex} onChange={handleChange} required>
-              <option value='' hidden>
-                Sex
+            {schools.map((school) => (
+              <option key={school.id} value={school.id}>
+                {school.school_des}
               </option>
-              <option value='Male'>Male</option>
-              <option value='Female'>Female</option>
-            </select>
-          </div>
-          <div className='mb-3 input-group'>
-            <span className='input-group-text'>
-              <i className='fas fa-graduation-cap'></i>
-            </span>
-            <select className='form-control' id='strand' value={formData.strand} onChange={handleChange} required>
-              <option value='' hidden>
-                Strand
-              </option>
-              <option value='ABM'>ABM</option>
-              <option value='ARTSDESIGN'>ARTS&DESIGN</option>
-              <option value='STEM'>STEM</option>
-              <option value='HUMMS'>HUMMS</option>
-              <option value='TVL'>TVL</option>
-            </select>
-          </div>
-          <div className='mb-3 input-group'>
-            <span className='input-group-text'>
-              <i className='fas fa-level-up-alt'></i>
-            </span>
-            <select className='form-control' id='grade_level' value={formData.grade_level} onChange={handleChange} required>
-              <option value='' hidden>
-                Grade Level
-              </option>
-              <option value='11'>Grade 11</option>
-              <option value='12'>Grade 12</option>
-            </select>
-          </div>
-          <div className='d-flex justify-content-center w-100'>
-            <button type='submit' className='btn btn-primary'>
-              Register
-            </button>
-          </div>
-        </form>
-      </Modal>
+            ))}
+          </select>
+        </div>
+        <div className='mb-3 input-group'>
+          <span className='input-group-text'>
+            <i className='fas fa-phone'></i>
+          </span>
+          <input
+            type='text'
+            className='form-control'
+            id='mobile_no'
+            placeholder='Mobile No.'
+            value={formData.mobile_no}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        <div className='mb-3 input-group'>
+          <span className='input-group-text'>
+            <i className='fas fa-venus-mars'></i>
+          </span>
+          <select
+            className='form-control'
+            id='sex'
+            value={formData.sex}
+            onChange={handleChange}
+            required
+          >
+            <option value='' hidden>
+              Sex
+            </option>
+            <option value='Male'>Male</option>
+            <option value='Female'>Female</option>
+          </select>
+        </div>
+        <div className='mb-3 input-group'>
+          <span className='input-group-text'>
+            <i className='fas fa-graduation-cap'></i>
+          </span>
+          <select
+            className='form-control'
+            id='strand'
+            value={formData.strand}
+            onChange={handleChange}
+            required
+          >
+            <option value='' hidden>
+              Strand
+            </option>
+            <option value='ABM'>ABM</option>
+            <option value='ARTSDESIGN'>ARTS&DESIGN</option>
+            <option value='STEM'>STEM</option>
+            <option value='HUMMS'>HUMMS</option>
+            <option value='TVL'>TVL</option>
+          </select>
+        </div>
+        <div className='mb-3 input-group'>
+          <span className='input-group-text'>
+            <i className='fas fa-level-up-alt'></i>
+          </span>
+          <select
+            className='form-control'
+            id='grade_level'
+            value={formData.grade_level}
+            onChange={handleChange}
+            required
+          >
+            <option value='' hidden>
+              Grade Level
+            </option>
+            <option value='11'>Grade 11</option>
+            <option value='12'>Grade 12</option>
+          </select>
+        </div>
+        <div className='d-flex justify-content-center w-100'>
+          <button type='submit' className='btn btn-primary'>
+            Register
+          </button>
+        </div>
+      </form>
+    </Modal>
     </>
   );
 };

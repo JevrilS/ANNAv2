@@ -366,3 +366,43 @@ def check_schema_view(request):
         cursor.execute("SELECT current_schema()")
         schema = cursor.fetchone()[0]
     return JsonResponse({'current_schema': schema})
+
+logger = logging.getLogger(__name__)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def guidance_login_view(request):
+    try:
+        data = request.data
+        email = data.get('email')
+        password = data.get('password')
+
+        if not email or not password:
+            return Response({'message': 'Email and password are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        logger.info(f'Attempting login with email: {email}')
+
+        # Determine the schema based on the request's host
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT schema_name FROM custom_auth_client WHERE domain = %s", [request.get_host()])
+            schema_name = cursor.fetchone()
+
+        if not schema_name:
+            logger.error('No tenant schema found for the request domain')
+            return Response({'message': 'Tenant not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Use schema context to authenticate the user within the correct schema
+        with schema_context(schema_name[0]):
+            user = authenticate(request, username=email, password=password)
+
+            if user is not None and user.is_active:
+                login(request, user)
+                logger.info('Authentication successful')
+                return Response({'message': 'Login successful'}, status=status.HTTP_200_OK)
+            else:
+                logger.error('Authentication failed: Invalid credentials or inactive account')
+                return Response({'message': 'Invalid credentials or inactive account'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    except Exception as e:
+        logger.error(f'Error during login: {str(e)}')
+        return Response({'message': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

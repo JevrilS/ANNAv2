@@ -33,83 +33,77 @@ function AccountDetails() {
   // Fetch user data
   useEffect(() => {
     const fetchUserData = async () => {
-        try {
-            const token = localStorage.getItem('authToken');
-            if (!token) {
-                throw new Error('No auth token found');
-            }
-
-            console.log('Auth Token:', token); // Debugging line to ensure the token is retrieved
-
-            // Use the api instance here
-            const response = await api.get('/auth/user/', {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-
-            console.log('User Data:', response.data);
-
-            setFormData({
-                id_no: response.data.id_no || '',
-                full_name: response.data.full_name || '',
-                email: response.data.email || '',
-                mobile_no: response.data.mobile_no || '',
-                school_id: response.data.school ? response.data.school.id : '',
-                strand: response.data.strand || '',
-                sex: response.data.sex || '',
-                grade_level: response.data.grade_level || '',
-            });
-        } catch (error) {
-            console.error('Error fetching user data:', error.response ? error.response.data : error.message);
-            if (error.response) {
-                console.log('Response Status:', error.response.status);
-                console.log('Response Headers:', error.response.headers);
-            }
-            toast.error('Failed to fetch user data');
-            if (error.response && error.response.status === 401) {
-                toast.error('You are not authorized. Please log in again.');
-                navigate('/login'); // Redirect to login if unauthorized
-            }
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          throw new Error('No auth token found');
         }
+  
+        const response = await api.get('/auth/user/', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+  
+        console.log('User Data:', response.data); // Check this log
+  
+        setFormData({
+          id_no: response.data.id_no || '',
+          full_name: response.data.full_name || '',
+          email: response.data.email || '',
+          mobile_no: response.data.mobile_no || '',
+          school_id: String(response.data.school_id) || '', // Ensure it's a string
+          strand: response.data.strand || '',
+          sex: response.data.sex || '',
+          grade_level: response.data.grade_level || '',
+        });
+      } catch (error) {
+        console.error('Error fetching user data:', error.response ? error.response.data : error.message);
+        if (error.response) {
+          console.log('Response Status:', error.response.status);
+          console.log('Response Headers:', error.response.headers);
+        }
+        toast.error('Failed to fetch user data');
+        if (error.response && error.response.status === 401) {
+          toast.error('You are not authorized. Please log in again.');
+          navigate('/login'); // Redirect to login if unauthorized
+        }
+      }
     };
-
+  
     fetchUserData();
-}, [navigate]);
+  }, [navigate]);
   // Fetch schools
  // Fetch schools
-useEffect(() => {
+ useEffect(() => {
   const fetchSchools = async () => {
-      try {
-          const token = localStorage.getItem('authToken');
-          if (!token) {
-              throw new Error('No auth token found');
-          }
-
-          console.log('Auth Token for Schools:', token); // Debugging line
-
-          // Use the api instance here
-          const response = await api.get('/auth/schools/', {
-              headers: {
-                  Authorization: `Bearer ${token}`,
-              },
-          });
-
-          console.log('Schools Data:', response.data);
-
-          setSchools(response.data);
-      } catch (error) {
-          console.error('Error fetching schools:', error.response ? error.response.data : error.message);
-          if (error.response) {
-              console.log('Response Status:', error.response.status);
-              console.log('Response Headers:', error.response.headers);
-          }
-          toast.error('Failed to fetch schools');
-          if (error.response && error.response.status === 401) {
-              toast.error('You are not authorized. Please log in again.');
-              navigate('/login'); // Redirect to login if unauthorized
-          }
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No auth token found');
       }
+
+      const response = await api.get('/auth/schools/', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log('Schools Data:', response.data); // Verify the data
+
+      setSchools(response.data);
+    } catch (error) {
+      console.error('Error fetching schools:', error.response ? error.response.data : error.message);
+      if (error.response) {
+        console.log('Response Status:', error.response.status);
+        console.log('Response Headers:', error.response.headers);
+      }
+      toast.error('Failed to fetch schools');
+      if (error.response && error.response.status === 401) {
+        toast.error('You are not authorized. Please log in again.');
+        navigate('/login'); // Redirect to login if unauthorized
+      }
+    }
   };
 
   fetchSchools();
@@ -233,12 +227,19 @@ useEffect(() => {
                     <div className="row">
                       <div className="col-md-6 mb-3">
                         <label htmlFor="school_id" className="form-label">School</label>
-                        <select className="form-select" id="school_id" value={formData.school_id} onChange={handleChange}>
-                          <option value="" hidden>Select School</option>
-                          {schools.map(school => (
-                            <option key={school.id} value={school.id}>{school.school_des}</option>
-                          ))}
-                        </select>
+                        <select
+  className="form-select"
+  id="school_id"
+  value={formData.school_id} // Correctly bind the value
+  onChange={handleChange}
+>
+  <option value="" hidden>Select School</option>
+  {schools.map((school) => (
+    <option key={school.id} value={school.id}>
+      {school.school_des}
+    </option>
+  ))}
+</select>
                       </div>
                       <div className="col-md-6 mb-3">
                         <label htmlFor="strand" className="form-label">Strand</label>

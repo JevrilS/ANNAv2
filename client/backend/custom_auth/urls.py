@@ -13,7 +13,8 @@ from .views import (
     check_schema_view,
     df_text_query,             # Add the Dialogflow text query view
     df_event_query,            # Add the Dialogflow event query view
-    dialogflow_fulfillment,    # Add the fulfillment webhook view
+    dialogflow_fulfillment,
+    guidance_login_view,    # Add the fulfillment webhook view
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
@@ -29,6 +30,7 @@ urlpatterns = [
     path('change-password/', ChangePasswordView.as_view(), name='change-password'),
     path('schools/', SchoolListView.as_view(), name='school-list'),
     path('check-schema/', check_schema_view, name='check_schema'),
+    path('auth/guidance-login/', guidance_login_view, name='guidance-login'),
 
     # Dialogflow API endpoints
     path('api/df_text_query/', df_text_query, name='df_text_query'),

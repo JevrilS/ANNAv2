@@ -1,9 +1,277 @@
-
-.modal-dialog-centered-custom {
+/* Center the modal dialog and limit its width */
+.register-modal .modal-dialog {
+   max-width: 600px; /* Adjust the width of the modal */
+   margin: auto; /* Center horizontally */
+ }
+ 
+ /* Style the register form */
+ .register-form {
+   width: 100%;
+   max-width: 500px; /* Limit form width */
+   margin: 0 auto; /* Center form */
+   padding: 20px;
+ }
+ 
+ /* Style the input groups */
+ .register-form .input-group {
+   margin-bottom: 15px;
+   display: flex; /* Use flexbox for alignment */
+   align-items: center; /* Align items vertically */
+ }
+ 
+ /* Style the input group text (icons) */
+ .register-form .input-group-text {
+   width: 40px;
+   height: 40px;
+   justify-content: center;
+   background-color: #f5f5f5; /* Background color for icons */
+   border: none;
+   border-radius: 50%; /* Circular shape */
    display: flex;
    align-items: center;
-   min-height: calc(100% - 1rem);
+   justify-content: center;
+   font-size: 16px; /* Adjust icon size */
+   color: #333; /* Icon color */
+ }
+ 
+ /* Style the form control */
+ .register-form .form-control {
+   border: none;
+   border-bottom: 2px solid #ccc;
+   border-radius: 0;
+   width: calc(100% - 50px); /* Adjust width to fit alongside icons */
+   margin-left: 10px; /* Space between icon and input */
+   background: transparent; /* Transparent background */
+   box-shadow: none; /* No shadow */
+   transition: border-color 0.2s; /* Transition for focus */
+   padding: 10px; /* Add padding for better usability */
+ }
+ 
+ /* Change border color on focus */
+ .register-form .form-control:focus {
+   border-bottom: 2px solid #007bff; /* Blue border on focus */
+   box-shadow: none; /* No shadow */
+ }
+ 
+ /* Style the register button */
+ .register-form .btn {
+   width: 100%;
+   border-radius: 20px; /* Rounded corners for button */
+   padding: 10px 0; /* Vertical padding */
+   background-color: #007bff;
+   border-color: #007bff;
+   font-weight: bold;
+   transition: background-color 0.3s, border-color 0.3s;
+ }
+ 
+ .register-form .btn:hover {
+   background-color: #0056b3;
+   border-color: #0056b3;
+ }
+ 
+ /* Adjust modal title style */
+ .modal-title {
+   font-weight: bold;
+   font-size: 24px;
+   text-align: center;
+   margin-bottom: 20px; /* Add spacing below title */
+ }
+ 
+ /* Center and style the "Already have an account?" text */
+ .already-have-account {
+   font-size: 16px;
+   color: #333;
+   text-align: center; /* Center text */
+   margin-top: 20px; /* Add spacing above */
+ }
+ 
+ /* Style for the 'Login' button */
+ .login-button {
+   font-size: 16px; /* Match font size with surrounding text */
+   color: #007bff; /* Blue color for link */
+   font-weight: bold; /* Bold for emphasis */
+   background: none; /* No background */
+   border: none; /* No border */
+   text-decoration: underline; /* Underline to indicate a link */
+   cursor: pointer; /* Pointer cursor to indicate it's clickable */
+   margin-left: 5px; /* Small space between text and button */
+ }
+ 
+ .login-button:hover {
+   color: #0056b3; /* Darker blue on hover */
+   text-decoration: none; /* Remove underline on hover */
+ }
+/* Center the modal dialog and limit its width */
+.register-modal .modal-dialog {
+  max-width: 600px; /* Adjust the width of the modal */
+  margin: auto; /* Center horizontally */
 }
+
+/* Style the register form */
+.register-form {
+  width: 100%;
+  max-width: 500px; /* Limit form width */
+  margin: 0 auto; /* Center form */
+  padding: 20px;
+}
+
+/* Style the input groups */
+.register-form .input-group {
+  margin-bottom: 15px;
+  display: flex; /* Use flexbox for alignment */
+  align-items: center; /* Align items vertically */
+}
+
+/* Style the input group text (icons) */
+.register-form .input-group-text {
+  width: 40px;
+  height: 40px;
+  justify-content: center;
+  background-color: #f5f5f5; /* Background color for icons */
+  border: none;
+  border-radius: 50%; /* Circular shape */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px; /* Adjust icon size */
+  color: #333; /* Icon color */
+}
+
+/* Style the form control */
+.register-form .form-control {
+  border: none;
+  border-bottom: 2px solid #ccc;
+  border-radius: 0;
+  width: calc(100% - 50px); /* Adjust width to fit alongside icons */
+  margin-left: 10px; /* Space between icon and input */
+  background: transparent; /* Transparent background */
+  box-shadow: none; /* No shadow */
+  transition: border-color 0.2s; /* Transition for focus */
+  padding: 10px; /* Add padding for better usability */
+}
+
+/* Change border color on focus */
+.register-form .form-control:focus {
+  border-bottom: 2px solid #007bff; /* Blue border on focus */
+  box-shadow: none; /* No shadow */
+}
+
+/* Style the register button */
+.register-form .btn {
+  width: 100%;
+  border-radius: 20px; /* Rounded corners for button */
+  padding: 10px 0; /* Vertical padding */
+}
+
+/* Adjust modal title style */
+.modal-title {
+  font-weight: bold;
+  font-size: 24px;
+  text-align: center;
+  margin-bottom: 20px; /* Add spacing below title */
+}
+.dont-have-account {
+  font-size: 20px; /* Increase font size */
+  color: #333; /* Darker color for better readability */
+  margin-top: 15px; /* Add some spacing above */
+}
+
+/* Style for the 'Sign Up' button */
+.signup-button {
+  font-size: 16px; /* Match font size with surrounding text */
+  color: #007bff; /* Blue color for link */
+  font-weight: bold; /* Bold for emphasis */
+  background: none; /* No background */
+  border: none; /* No border */
+  text-decoration: underline; /* Underline to indicate a link */
+  cursor: pointer; /* Pointer cursor to indicate it's clickable */
+  margin-left: 5px; /* Small space between text and button */
+}
+
+.signup-button:hover {
+  color: #0056b3; /* Darker blue on hover */
+  text-decoration: none; /* Remove underline on hover */
+}
+
+/* Center the modal dialog */
+.login-modal .modal-dialog {
+  max-width: 500px; /* Adjust the max width to control overall modal size */
+  margin: auto; /* Center horizontally */
+}
+
+/* Style the login form */
+.login-form {
+  width: 100%; /* Full width of modal */
+  max-width: 400px; /* Limit form width */
+  margin: 0 auto; /* Center form */
+  padding: 20px;
+}
+
+/* Style the input groups */
+.login-form .input-group {
+  margin-bottom: 15px;
+}
+
+/* Style the input group text */
+.login-form .input-group-text {
+  width: 40px;
+  justify-content: center;
+  background-color: #f5f5f5; /* Background color for icons */
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Style the form control */
+.login-form .form-control {
+  border: none;
+  border-bottom: 2px solid #ccc;
+  border-radius: 0;
+  width: calc(100% - 40px);
+  margin-left: 5px;
+  background: transparent; /* Transparent background */
+  box-shadow: none; /* No shadow */
+  transition: border-color 0.2s; /* Transition for focus */
+}
+
+/* Change border color on focus */
+.login-form .form-control:focus {
+  border-bottom: 2px solid #007bff; /* Blue border on focus */
+  box-shadow: none; /* No shadow */
+}
+
+/* Style the login button */
+.login-form .btn {
+  width: 100%;
+  border-radius: 20px; /* Rounded corners for button */
+}
+
+/* Adjust modal title style */
+.modal-title {
+  font-weight: bold;
+  font-size: 24px;
+  text-align: center;
+}
+
+/* Center and style the forgot password link */
+.forgot-password-link {
+  font-size: 15px;
+  color: #007bff;
+  text-decoration: none;
+  margin-top: 10px;
+  display: block; /* Block to enable margin auto */
+  text-align: center; /* Center text */
+  margin: 0 auto; /* Center horizontally */
+}
+
+.modal-dialog-centered-custom {
+  display: flex;
+  align-items: center;
+  min-height: calc(100% - 1rem);
+}
+
 /* Additional custom styles */
 .bg-warning {
    background-color: #ffc107 !important;
