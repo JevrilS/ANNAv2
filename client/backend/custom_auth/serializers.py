@@ -4,7 +4,7 @@ from .models import User, School
 class SchoolSerializer(serializers.ModelSerializer):
     class Meta:
         model = School
-        fields = ['id', 'school_des', 'school_add']
+        fields = '__all__'
 
 class UserSerializer(serializers.ModelSerializer):
     school_id = serializers.PrimaryKeyRelatedField(

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import '../../styles/style.css'; // Consolidated import
+import '../../styles/style.css';
 import { useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
-import axios from 'axios';
 import { toast } from 'react-toastify';
 import * as bootstrap from 'bootstrap';
+import api from '../../utils/api'; // Import the Axios instance
 
 function AccountDetails() {
   const navigate = useNavigate();
@@ -17,7 +17,7 @@ function AccountDetails() {
     school_id: '',
     strand: '',
     sex: '',
-    grade_level: ''
+    grade_level: '',
   });
   const [schools, setSchools] = useState([]);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -25,92 +25,132 @@ function AccountDetails() {
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [passwordsMatch, setPasswordsMatch] = useState(true);
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-          throw new Error('No auth token found');
-        }
-        const response = await axios.get('/auth/user/', {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-        setFormData({
-          id_no: response.data.id_no || '',
-          full_name: response.data.full_name || '',
-          email: response.data.email || '',
-          mobile_no: response.data.mobile_no || '',
-          school_id: response.data.school ? response.data.school.id : '',
-          strand: response.data.strand || '',
-          sex: response.data.sex || '',
-          grade_level: response.data.grade_level || ''
-        });
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-      }
-    };
-
-    const fetchSchools = async () => {
-      try {
-        const token = localStorage.getItem('authToken');
-        const response = await axios.get('/auth/schools/', {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-        setSchools(response.data);
-      } catch (error) {
-        console.error('Error fetching schools:', error);
-      }
-    };
-
-    fetchUserData();
-    fetchSchools();
-  }, []);
-
+  // Check if passwords match
   useEffect(() => {
     setPasswordsMatch(newPassword === confirmNewPassword);
   }, [newPassword, confirmNewPassword]);
 
+  // Fetch user data
+  useEffect(() => {
+    const fetchUserData = async () => {
+        try {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                throw new Error('No auth token found');
+            }
+
+            console.log('Auth Token:', token); // Debugging line to ensure the token is retrieved
+
+            // Use the api instance here
+            const response = await api.get('/auth/user/', {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            console.log('User Data:', response.data);
+
+            setFormData({
+                id_no: response.data.id_no || '',
+                full_name: response.data.full_name || '',
+                email: response.data.email || '',
+                mobile_no: response.data.mobile_no || '',
+                school_id: response.data.school ? response.data.school.id : '',
+                strand: response.data.strand || '',
+                sex: response.data.sex || '',
+                grade_level: response.data.grade_level || '',
+            });
+        } catch (error) {
+            console.error('Error fetching user data:', error.response ? error.response.data : error.message);
+            if (error.response) {
+                console.log('Response Status:', error.response.status);
+                console.log('Response Headers:', error.response.headers);
+            }
+            toast.error('Failed to fetch user data');
+            if (error.response && error.response.status === 401) {
+                toast.error('You are not authorized. Please log in again.');
+                navigate('/login'); // Redirect to login if unauthorized
+            }
+        }
+    };
+
+    fetchUserData();
+}, [navigate]);
+  // Fetch schools
+ // Fetch schools
+useEffect(() => {
+  const fetchSchools = async () => {
+      try {
+          const token = localStorage.getItem('authToken');
+          if (!token) {
+              throw new Error('No auth token found');
+          }
+
+          console.log('Auth Token for Schools:', token); // Debugging line
+
+          // Use the api instance here
+          const response = await api.get('/auth/schools/', {
+              headers: {
+                  Authorization: `Bearer ${token}`,
+              },
+          });
+
+          console.log('Schools Data:', response.data);
+
+          setSchools(response.data);
+      } catch (error) {
+          console.error('Error fetching schools:', error.response ? error.response.data : error.message);
+          if (error.response) {
+              console.log('Response Status:', error.response.status);
+              console.log('Response Headers:', error.response.headers);
+          }
+          toast.error('Failed to fetch schools');
+          if (error.response && error.response.status === 401) {
+              toast.error('You are not authorized. Please log in again.');
+              navigate('/login'); // Redirect to login if unauthorized
+          }
+      }
+  };
+
+  fetchSchools();
+}, [navigate]);
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
-      [e.target.id]: e.target.value
+      [e.target.id]: e.target.value,
     });
   };
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
-  
+
     if (!passwordsMatch) {
-      toast.error("New passwords do not match!");
+      toast.error('New passwords do not match!');
       return;
     }
-  
+
     try {
-      const response = await axios.put(
-        '/auth/change-password/',
-        { 
-          current_password: currentPassword, 
-          new_password: newPassword, 
-          confirm_new_password: confirmNewPassword 
+      const response = await api.put(
+        'auth/change-password/',
+        {
+          current_password: currentPassword,
+          new_password: newPassword,
+          confirm_new_password: confirmNewPassword,
         },
         {
           headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem('authToken')}`
-          }
+            Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+          },
         }
       );
-  
+
       if (response.status === 200) {
         toast.success('Password updated successfully');
         const modal = document.getElementById('changePasswordModal');
         const modalInstance = bootstrap.Modal.getInstance(modal);
         modalInstance.hide();
-        document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+        document.querySelectorAll('.modal-backdrop').forEach((backdrop) => backdrop.remove());
       } else {
         toast.error('Failed to update password');
       }
@@ -125,16 +165,14 @@ function AccountDetails() {
       }
     }
   };
-  
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.put('/auth/user/', formData, {
+      const response = await api.put('auth/user/', formData, {
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('authToken')}`
-        }
+          Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+        },
       });
 
       if (response.status === 200) {
@@ -147,8 +185,6 @@ function AccountDetails() {
       toast.error('Error updating account details');
     }
   };
-
-
   return (
     <div className="container-fluid">
       <div className="row">
@@ -237,13 +273,11 @@ function AccountDetails() {
               </div>
             </div>
           </div>
-          </div>
-          </div>
+        </div>
+      </div>
 
-
-
-     {/* Change Password Modal */}
-     <div className="modal fade" id="changePasswordModal" tabIndex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
+      {/* Change Password Modal */}
+      <div className="modal fade" id="changePasswordModal" tabIndex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
         <div className="modal-dialog modal-lg">
           <div className="modal-content">
             <div className="modal-header">
@@ -255,11 +289,11 @@ function AccountDetails() {
                 <div className="mb-3">
                   <label htmlFor="currentPassword" className="form-label">Current Password</label>
                   <input type="password" className="form-control" id="currentPassword" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
-                  </div>
+                </div>
                 <div className="mb-3">
                   <label htmlFor="newPassword" className="form-label">New Password</label>
                   <input type="password" className="form-control" id="newPassword" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
-                  </div>
+                </div>
                 <div className="mb-3">
                   <label htmlFor="confirmNewPassword" className="form-label">Confirm New Password</label>
                   <input type="password" className="form-control" id="confirmNewPassword" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} required />

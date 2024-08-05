@@ -9,7 +9,11 @@ from .views import (
     login_view,
     UserDetailView,
     ChangePasswordView,
-    SchoolListView,  # Import the class, not a function
+    SchoolListView,
+    check_schema_view,
+    df_text_query,             # Add the Dialogflow text query view
+    df_event_query,            # Add the Dialogflow event query view
+    dialogflow_fulfillment,    # Add the fulfillment webhook view
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
@@ -23,5 +27,11 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('user/', UserDetailView.as_view(), name='user-detail'),
     path('change-password/', ChangePasswordView.as_view(), name='change-password'),
-    path('schools/', SchoolListView.as_view(), name='school-list'),  # This should call the as_view() method
+    path('schools/', SchoolListView.as_view(), name='school-list'),
+    path('check-schema/', check_schema_view, name='check_schema'),
+
+    # Dialogflow API endpoints
+    path('api/df_text_query/', df_text_query, name='df_text_query'),
+    path('api/df_event_query/', df_event_query, name='df_event_query'),
+    path('api/dialogflow_fulfillment/', dialogflow_fulfillment, name='dialogflow_fulfillment'),
 ]

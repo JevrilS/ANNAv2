@@ -30,6 +30,13 @@ class MyUserManager(BaseUserManager):
         if not email:
             raise ValueError('The Email field must be set')
         email = self.normalize_email(email)
+        school_id = extra_fields.get('school_id')
+        if school_id:
+            try:
+                school = School.objects.get(id=school_id)
+                extra_fields['school'] = school
+            except School.DoesNotExist:
+                raise ValueError('Invalid school id')
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
@@ -48,7 +55,8 @@ class School(models.Model):
     """
     school_des = models.CharField(max_length=255)
     school_add = models.CharField(max_length=255)
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='schools')
+    client = models.ForeignKey(Client, on_delete=models.CASCADE)
+    
     class Meta:
         db_table = 'schools'
         app_label = 'custom_auth'  # Ensure the app_label matches the installed app name
@@ -59,26 +67,23 @@ class School(models.Model):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    """
-    Custom user model for tenants.
-    """
     id_no = models.CharField(max_length=20, unique=True)
     full_name = models.CharField(max_length=255)
     email = models.EmailField(unique=True)
-    school = models.ForeignKey(School, on_delete=models.SET_NULL, null=True, db_column='school_id')
     mobile_no = models.CharField(max_length=20)
     sex = models.CharField(max_length=10)
     strand = models.CharField(max_length=10)
     grade_level = models.CharField(max_length=2)
-
+    school = models.ForeignKey('School', on_delete=models.SET_NULL, null=True, db_column='school_id')
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
+    last_login = models.DateTimeField(auto_now=True)  # Add this line
+
     objects = MyUserManager()
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['id_no', 'full_name', 'school', 'mobile_no', 'sex', 'strand', 'grade_level']
-
     groups = models.ManyToManyField(
         'auth.Group',
         related_name='custom_user_set',
@@ -96,7 +101,6 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
-
 class Feedback(models.Model):
     """
     Model to handle feedback submitted by users.

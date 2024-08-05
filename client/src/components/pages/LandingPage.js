@@ -150,40 +150,42 @@ const LandingPage = () => {
     e.preventDefault();
 
     const loginData = {
-      email: e.target.loginEmail.value,
-      password: e.target.loginPassword.value,
+        email: e.target.loginEmail.value,
+        password: e.target.loginPassword.value,
     };
 
     console.log('Login Data:', loginData);
 
     try {
-      const response = await api.post('/token/', loginData, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+        const response = await api.post('/auth/token/', loginData, {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
 
-      console.log('Login Response:', response);
-      console.log('Login Response Data:', response.data);
+        console.log('Login Response:', response);
+        console.log('Login Response Data:', response.data);
 
-      if (response.status === 200 && response.data.access) {
-        setAuth(true);
-        localStorage.setItem('authToken', response.data.access); // Store token if needed
-        toast.success('Login successful!');
-      } else {
-        toast.error('Login failed. Please check your credentials.');
-      }
+        if (response.status === 200 && response.data.access) {
+            setAuth(true);
+            localStorage.setItem('authToken', response.data.access); // Store access token
+            localStorage.setItem('refreshToken', response.data.refresh); // Store refresh token if provided
+            toast.success('Login successful!');
+        } else {
+            toast.error('Login failed. Please check your credentials.');
+        }
     } catch (err) {
-      console.error('Login Error:', err.response ? err.response.data : err.message);
-      toast.error('Login failed. Please check your credentials.');
+        console.error('Login Error:', err.response ? err.response.data : err.message);
+        toast.error('Login failed. Please check your credentials.');
     }
-  };
+};
 
   const handleLogout = () => {
     localStorage.removeItem('authToken'); // Remove the token from localStorage
     setAuth(false);
     toast.success('Logged out successfully!');
   };
+
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -209,8 +211,7 @@ const LandingPage = () => {
         console.error(error.response.data);
         toast.error(error.response.data.message);
     }
-};
-  
+  };
 
   const getCookie = (name) => {
     let cookieValue = null;
@@ -538,16 +539,14 @@ const LandingPage = () => {
             <span className='input-group-text'>
               <i className='fas fa-school'></i>
             </span>
-            <select className='form-control' id='school_id' value={formData.school_id} onChange={handleChange} required>
-              <option value='' hidden>
-                Select School
-              </option>
-              {schools.map((school) => (
-                <option key={school.id} value={school.id}>
-                  {school.school_des}
-                </option>
-              ))}
-            </select>
+          <select className='form-control' id='school_id' value={formData.school_id} onChange={handleChange} required>
+          <option value='' hidden>Select School</option>
+          {schools.map((school) => (
+            <option key={school.id} value={school.id}>
+              {school.school_des}
+            </option>
+          ))}
+        </select>
           </div>
           <div className='mb-3 input-group'>
             <span className='input-group-text'>

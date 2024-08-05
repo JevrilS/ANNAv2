@@ -13,9 +13,23 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 import os
 from pathlib import Path
 from datetime import timedelta
+from dotenv import load_dotenv
+from google.oauth2 import service_account
+from google.cloud import dialogflow_v2 as dialogflow
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+load_dotenv()  # Loads environment variables from .env file
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+GOOGLE_PROJECT_ID = os.getenv('GOOGLE_PROJECT_ID')
+DIALOGFLOW_SESSION_ID = os.getenv('DIALOGFLOW_SESSION_ID')
+DIALOGFLOW_SESSION_LANGUAGE_CODE = os.getenv('DIALOGFLOW_SESSION_LANGUAGE_CODE')
+GOOGLE_CLIENT_EMAIL = os.getenv('GOOGLE_CLIENT_EMAIL')
+GOOGLE_PRIVATE_KEY = os.getenv('GOOGLE_PRIVATE_KEY').replace('\\n', '\n')
+MONGO_URI = os.getenv('MONGO_URI')
+JWT_SECRET = os.getenv('JWT_SECRET')
+ADMIN_GOOGLE_CLIENT_EMAIL = os.getenv('ADMIN_GOOGLE_CLIENT_EMAIL')
+ADMIN_GOOGLE_PRIVATE_KEY = os.getenv('ADMIN_GOOGLE_PRIVATE_KEY').replace('\\n', '\n')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
@@ -30,6 +44,13 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'UIC.localhost', 'school1.localhost',
 
 # Django REST framework settings
 REST_FRAMEWORK = {
+    
+        'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
+    ),
+    'DEFAULT_PARSER_CLASSES': (
+        'rest_framework.parsers.JSONParser',
+    ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
@@ -42,7 +63,7 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-    'ROTATE_REFRESH_TOKENS': False,
+    'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
@@ -142,6 +163,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'custom_auth.middleware.SchemaLoggerMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'
