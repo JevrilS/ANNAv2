@@ -187,31 +187,31 @@ const LandingPage = () => {
   };
 
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    const csrftoken = getCookie('csrftoken');
-    console.log('Form Data: ', formData); // Log form data to console for debugging
+const handleRegister = async (e) => {
+  e.preventDefault();
+  const csrftoken = getCookie('csrftoken');
+  console.log('Form Data: ', formData); // Log form data to console for debugging
 
-    try {
-        const response = await api.post('/register/', formData, {
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrftoken,
-            },
-        });
-        console.log(response.data);
-        if (response.status === 201) {
-            toast.success('User registered successfully');
-            setShowRegisterModal(false); // Hide the modal
-            setShowLoginModal(true); // Show the login modal
-        } else {
-            toast.error(response.data.message);
-        }
-    } catch (error) {
-        console.error(error.response.data);
-        toast.error(error.response.data.message);
+  try {
+    const response = await api.post('/register/', formData, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrftoken,
+      },
+    });
+    console.log(response.data);
+    if (response.status === 201) {
+      toast.success('User registered successfully');
+      setShowRegisterModal(false); // Close the registration modal
+      setShowLoginModal(true); // Show the login modal
+    } else {
+      toast.error(response.data.message);
     }
-  };
+  } catch (error) {
+    console.error(error.response.data);
+    toast.error(error.response.data.message);
+  }
+};
 
   const getCookie = (name) => {
     let cookieValue = null;
