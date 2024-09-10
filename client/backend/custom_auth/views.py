@@ -10,6 +10,7 @@ from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Domain, UserProfile, User
 from django.http import JsonResponse
+from django.core.serializers.json import DjangoJSONEncoder
 from django.contrib.auth import authenticate, login
 import logging
 import json
@@ -32,6 +33,9 @@ from rest_framework.decorators import api_view, permission_classes  # Import per
 from django.db import connection
 from .dialogflow_service import DialogflowService
 from rest_framework_simplejwt.tokens import AccessToken
+from django.http import JsonResponse
+from .dialogflow_service import detect_intent_event
+logger = logging.getLogger(__name__)
 
 # Initialize Dialogflow Service
 dialogflow_service = DialogflowService(
@@ -41,36 +45,7 @@ dialogflow_service = DialogflowService(
 )
 
 @csrf_exempt
-def df_text_query(request):
-    """
-    Handles Dialogflow text queries from the client application.
-    """
-    if request.method == 'POST':
-        try:
-            body = json.loads(request.body.decode('utf-8'))
-            text = body.get('text')
-            user_id = body.get('userId')  # Use this if you have multiple session IDs
-            parameters = body.get('parameters', {})
-
-            # Log the incoming request
-            logger.debug(f"Received text query: {text} for user: {user_id}")
-
-            response = dialogflow_service.detect_intent_texts(text, user_id)
-            
-            # Log the Dialogflow response
-            logger.debug(f"Dialogflow response: {response}")
-
-            return JsonResponse({
-                'fulfillmentText': response.fulfillment_text,
-                'intent': response.intent.display_name,
-                'parameters': response.parameters
-            }, status=200)
-        except Exception as e:
-            logger.error(f"Error processing text query: {str(e)}")
-            return JsonResponse({'error': str(e)}, status=500)
-    return JsonResponse({'error': 'Method not allowed'}, status=405)
-
-@csrf_exempt
+@permission_classes([IsAuthenticated])
 def df_event_query(request):
     """
     Handles Dialogflow event queries from the client application.
@@ -81,24 +56,80 @@ def df_event_query(request):
             event = body.get('event')
             user_id = body.get('userId')
             parameters = body.get('parameters', {})
+            language_code = body.get('languageCode', 'en')  # Default to 'en' if not provided
 
             # Log the incoming request
             logger.debug(f"Received event query: {event} for user: {user_id}")
 
-            response = dialogflow_service.detect_intent_event(event, user_id, parameters)
+            response = detect_intent_event(event, user_id, parameters, language_code)
             
             # Log the Dialogflow response
             logger.debug(f"Dialogflow response: {response}")
 
-            return JsonResponse({
+            # Ensure all objects in response_data are JSON serializable
+            response_data = {
                 'fulfillmentText': response.fulfillment_text,
                 'intent': response.intent.display_name,
                 'parameters': response.parameters
-            }, status=200)
+            }
+
+            return JsonResponse(response_data, status=200)
         except Exception as e:
-            logger.error(f"Error processing event query: {str(e)}")
+            logger.error(f"Error processing Dialogflow event query: {e}")
             return JsonResponse({'error': str(e)}, status=500)
-    return JsonResponse({'error': 'Method not allowed'}, status=405)
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def df_text_query(request):
+    if request.method == 'POST':
+        try:
+            body = json.loads(request.body.decode('utf-8'))
+            text = body.get('text')
+            user_id = body.get('userId')
+            parameters = body.get('parameters', {})
+            language_code = body.get('languageCode', 'en')  # Default to 'en' if not provided
+
+            # Log the incoming request
+            logger.debug(f"Received text query: {text} for user: {user_id}")
+
+            response = detect_intent_text(text, user_id, parameters, language_code)
+            
+            # Log the Dialogflow response
+            logger.debug(f"Dialogflow response: {response}")
+
+            # Ensure all objects in response_data are JSON serializable
+            response_data = {
+                'fulfillmentText': response.fulfillment_text,
+                'intent': response.intent.display_name,
+                'parameters': response.parameters
+            }
+
+            return JsonResponse(response_data, status=200)
+        except Exception as e:
+            logger.error(f"Error processing Dialogflow text query: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+
+def convert_to_serializable(obj):
+    """
+    Recursively converts MapComposite or other non-serializable objects to serializable types.
+    """
+    if isinstance(obj, dict):
+        return {k: convert_to_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_to_serializable(i) for i in obj]
+    elif hasattr(obj, 'fields'):  # For handling Dialogflow composite objects
+        return {k: convert_to_serializable(v) for k, v in obj.fields.items()}
+    elif hasattr(obj, 'list_value'):  # For handling list_value objects
+        return [convert_to_serializable(i) for i in obj.list_value.values]
+    else:
+        return obj
+
+
 
 @csrf_exempt
 def dialogflow_fulfillment(request):
@@ -368,6 +399,18 @@ def check_schema_view(request):
     return JsonResponse({'current_schema': schema})
 
 logger = logging.getLogger(__name__)
+def convert_to_serializable(obj):
+    """
+    Recursively converts MapComposite or other non-serializable objects to serializable types.
+    """
+    if isinstance(obj, dict):
+        return {k: convert_to_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_to_serializable(i) for i in obj]
+    elif hasattr(obj, 'fields'):  # For handling Dialogflow composite objects
+        return {k: convert_to_serializable(v) for k, v in obj.fields.items()}
+    else:
+        return obj
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -406,3 +449,4 @@ def guidance_login_view(request):
     except Exception as e:
         logger.error(f'Error during login: {str(e)}')
         return Response({'message': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    

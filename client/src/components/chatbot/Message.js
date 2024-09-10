@@ -8,8 +8,11 @@ const Message = ({ keyword, speaks, text }) => {
    const { inputRef } = useContext(ChatbotContext);
 
    useEffect(() => {
-      inputRef.current.focus();
-   }, []);
+      // Ensure inputRef.current is defined before calling focus
+      if (inputRef?.current) {
+         inputRef.current.focus();
+      }
+   }, [inputRef]);
 
    return (
       <>

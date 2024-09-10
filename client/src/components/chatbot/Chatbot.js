@@ -91,7 +91,7 @@ const Chatbot = () => {
     
       try {
         const body = { text, userId: cookies.get('userId'), parameters };
-        const response = await fetch('/api/df_text_query', {
+        const response = await fetch('/api/df_text_query/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -136,13 +136,13 @@ const Chatbot = () => {
             else if (fields.strand) setUser((prev) => ({ ...prev, strand: fields.strand.stringValue }));
           }
     
-          data.fulfillmentMessages.forEach(async (msg) => {
+          data.fulfillmentMessages.forEach(function(msg) {
             const botSays = {
               speaks: 'bot',
               msg: msg,
             };
             setMessages((prev) => [...prev, botSays]);
-    
+        
             // Trigger something based on the payload sent by dialogflow
             if (msg.payload && msg.payload.fields && msg.payload.fields.riasec) {
               const riasecValue = msg.payload.fields.riasec.stringValue;
@@ -217,95 +217,135 @@ const Chatbot = () => {
       }
     };
 
-   const df_event_query = async (event, parameters) => {
+    const df_event_query = async (event, parameters) => {
       try {
-         setBotChatLoading(true);
-
-         const body = { event, userId: cookies.get('userId'), parameters };
-         const response = await fetch('/api/df_event_query', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-         });
-         const data = await response.json();
-         setBotChatLoading(false);
-         console.dir(data);
-
-         if (response.status === 200 && data) {
-            //clear all state when welcome intent trigger
-            if (data.intent && data.intent.displayName === 'Default Welcome Intent') {
-               clearState();
-            } else if (!data.intent) {
-               // or trigger if no other intent match, such as expired context or exceed 20mins
-               df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
-               clearState();
-               setEndConversation(true);
-
-               // make input field visible and not disable so users can type
-               // make sure that user can type and see the input after ending conversation
-               setDisabledInput(false);
-               setIsVisibleInput(true);
-            }
-
-            data.fulfillmentMessages.forEach(async msg => {
-               const botSays = {
-                  speaks: 'bot',
-                  msg: msg,
-               };
-               setMessages(prev => [...prev, botSays]);
-
-               // trigger something based on the payload sent by dialogflow
-               if (msg.payload && msg.payload.fields && msg.payload.fields.iswant_strand_recommendation) {
-                  df_event_query('STRAND_RECOMMENDATION', { strand: user.strand });
-                  setIsRecommendationProvided(prev => ({ ...prev, strand: 'done' }));
-               }
-               if (msg.payload && msg.payload.fields && msg.payload.fields.no_riasec_recommended_courses) {
-                  // trigger only when no riasec recommendation
-                  setIsRecommendationProvided(prev => ({ ...prev, riasec: '' }));
-               }
-               if (msg.payload && msg.payload.fields && msg.payload.fields.riasec_recommended_courses) {
-                  const recommendedCourses = msg.payload.fields.riasec_recommended_courses.listValue.values;
-                  setRiasecBasedRecommendedCourses(recommendedCourses.map(course => course.stringValue));
-               }
-               if (msg.payload && msg.payload.fields && msg.payload.fields.strand_recommended_courses) {
-                  const recommendedCourses = msg.payload.fields.strand_recommended_courses.listValue.values;
-                  setStrandBasedRecommendedCourses(recommendedCourses.map(course => course.stringValue));
-               }
-               if (msg.payload && msg.payload.fields && msg.payload.fields.end_conversation) {
-                  savedConversation(user, riasecCode, riasecBasedRecommendedCourses, strandBasedRecommendedCourses);
+          setBotChatLoading(true);
+  
+          const body = {
+              event,
+              userId: cookies.get('userId'),
+              parameters,
+              languageCode: 'en', // Ensure language code is set
+          };
+          const response = await fetch('/api/df_event_query/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+          });
+  
+          const data = await response.json();
+          setBotChatLoading(false);
+          console.log('Full Dialogflow Response:', JSON.stringify(data, null, 2)); // Log full response
+  
+          if (response.status === 200 && data) {
+              // Clear state if welcome intent is detected
+              if (data.intent && data.intent.displayName === 'Default Welcome Intent') {
                   clearState();
-                  setDisabledInput(true);
-                  setIsVisibleInput(false);
-               }
-            });
-         } else {
-            const botSays = {
-               speaks: 'bot',
-               msg: {
-                  text: {
-                     text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
+              } else if (!data.intent) {
+                  // Handle fallback or no intent match
+                  df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
+                  clearState();
+                  setEndConversation(true);
+                  setDisabledInput(false);
+                  setIsVisibleInput(true);
+              }
+  
+              // Process the fulfillment messages
+              if (Array.isArray(data.fulfillmentMessages)) {
+                  data.fulfillmentMessages.forEach((msg) => {
+                      if (msg.text && msg.text.text) {
+                          // Render the fulfillment text in the chat
+                          const botSays = {
+                              speaks: 'bot',
+                              msg: msg.text.text[0], // Assuming the first element in the text array
+                          };
+                          setMessages((prev) => [...prev, botSays]);
+                      }
+  
+                      // Handle specific payloads
+                      if (msg.payload && msg.payload.fields) {
+                          // Handle strand recommendation trigger
+                          if (msg.payload.fields.iswant_strand_recommendation) {
+                              df_event_query('STRAND_RECOMMENDATION', { strand: user.strand });
+                              setIsRecommendationProvided(prev => ({ ...prev, strand: 'done' }));
+                          }
+  
+                          // Handle RIASEC recommendation cases
+                          if (msg.payload.fields.no_riasec_recommended_courses) {
+                              setIsRecommendationProvided(prev => ({ ...prev, riasec: '' }));
+                          }
+  
+                          if (msg.payload.fields.riasec_recommended_courses) {
+                              const recommendedCourses = msg.payload.fields.riasec_recommended_courses.listValue.values;
+                              setRiasecBasedRecommendedCourses(recommendedCourses.map(course => course.stringValue));
+                          }
+  
+                          if (msg.payload.fields.strand_recommended_courses) {
+                              const recommendedCourses = msg.payload.fields.strand_recommended_courses.listValue.values;
+                              setStrandBasedRecommendedCourses(recommendedCourses.map(course => course.stringValue));
+                          }
+  
+                          // Handle conversation end
+                          if (msg.payload.fields.end_conversation) {
+                              savedConversation(user, riasecCode, riasecBasedRecommendedCourses, strandBasedRecommendedCourses);
+                              clearState();
+                              setDisabledInput(true);
+                              setIsVisibleInput(false);
+                          }
+                      }
+                  });
+              }
+  
+              // Check and log parameters
+              if (data.parameters && data.parameters.fields && Object.keys(data.parameters.fields).length > 0) {
+                  console.log('Parameters:', data.parameters.fields);
+  
+                  Object.keys(data.parameters.fields).forEach((key) => {
+                      const param = data.parameters.fields[key];
+  
+                      if (param.stringValue) {
+                          console.log(`${key}: ${param.stringValue}`);
+                      } else if (param.numberValue) {
+                          console.log(`${key}: ${param.numberValue}`);
+                      } else if (param.structValue) {
+                          console.log(`${key}: ${JSON.stringify(param.structValue)}`);
+                      } else if (param.listValue) {
+                          console.log(`${key}: ${param.listValue.values.map(v => v.stringValue || v.numberValue || JSON.stringify(v.structValue))}`);
+                      } else {
+                          console.log(`${key}: Unknown parameter type`);
+                      }
+                  });
+              } else {
+                  console.warn('No parameters returned in Dialogflow response.');
+              }
+  
+          } else {
+              const botSays = {
+                  speaks: 'bot',
+                  msg: {
+                      text: {
+                          text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
+                      },
                   },
-               },
-            };
-
-            setMessages(prev => [...prev, botSays]);
-         }
+              };
+              setMessages(prev => [...prev, botSays]);
+          }
       } catch (err) {
-         console.log(err.message);
-
-         setBotChatLoading(false);
-         const botSays = {
-            speaks: 'bot',
-            msg: {
-               text: {
-                  text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
-               },
-            },
-         };
-
-         setMessages(prev => [...prev, botSays]);
+          console.log('Error in df_event_query:', err.message);
+  
+          setBotChatLoading(false);
+          const botSays = {
+              speaks: 'bot',
+              msg: {
+                  text: {
+                      text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
+                  },
+              },
+          };
+          setMessages(prev => [...prev, botSays]);
       }
-   };
+  };
+  
 
    const triggerCourseOptionYes = () => {
       // this will keep the context exceeds the time limit of 20mins, because users might take time watching the videos

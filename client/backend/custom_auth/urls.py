@@ -34,6 +34,7 @@ urlpatterns = [
 
     # Dialogflow API endpoints
     path('api/df_text_query/', df_text_query, name='df_text_query'),
-    path('api/df_event_query/', df_event_query, name='df_event_query'),
     path('api/dialogflow_fulfillment/', dialogflow_fulfillment, name='dialogflow_fulfillment'),
+    path('api/df_event_query/', df_event_query, name='df_event_query'),
+
 ]

@@ -29,8 +29,34 @@ GOOGLE_PRIVATE_KEY = os.getenv('GOOGLE_PRIVATE_KEY').replace('\\n', '\n')
 MONGO_URI = os.getenv('MONGO_URI')
 JWT_SECRET = os.getenv('JWT_SECRET')
 ADMIN_GOOGLE_CLIENT_EMAIL = os.getenv('ADMIN_GOOGLE_CLIENT_EMAIL')
-ADMIN_GOOGLE_PRIVATE_KEY = os.getenv('ADMIN_GOOGLE_PRIVATE_KEY').replace('\\n', '\n')
-
+ADMIN_GOOGLE_PRIVATE_KEY = """-----BEGIN PRIVATE KEY-----
+MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDjpeeuPlQOuq6f
+6BycUWHElv6UkdxdWnoBbqMj3xnBIqd0Eja/jBdmwMF9Be3i3fcu9n0aa7VxX30f
+u/36QuILmqsGhhCpl2L8+jDKkNXpBfvjUnucUdBIFkYBk/RApC0isVnvK8D9iwKB
+dD+0JFqWtZo8LxViEzFB+e1x/k3VR3PFnz6je8VqLhNRwLhYkNBit/+2loZNsyHY
+9MByAiaUAKVrkzLup/2lCqOdIIONXExQnoi7vDk928xY2d3Bv+MRClIyZbBLRXij
+797h/OrNvLzDsSia3fRMrqcdb0wogoVKg4Ckoou3q+oxRvHLPb52Ny9NOpKxEfFe
+IjKlbTPNAgMBAAECggEADZsQ5lYwJhjhuXRrtgBbgx6m1LXasWioLJWSd2EiPqu7
+IuHjdvN2QuxSfs3/1QSWUq6lilKgK528/SHPpj62Qw0e23sKnBGMd26zmP5q49cO
+ojGVP4yYkcplAOX5HfOXWqtguD2e9qMG3A+uLq59NznfipPM0nRaXWVaMUCKodcb
+IvvUf/yiCMn5rhJcf0k7E9dOZg/ZrDSLdLN3YXzshq2jO2MKvfIQwQdT7ViphgAE
+LATqEKupo/SPTOvJ6/+F0iunccGS95STDPY+l7v01hBFaGXjDEy9QjN8k3nEZ8ga
+XC5J57stnTzzvuFWy25hOwFxJX0V9egCHOyvjpMpKQKBgQDz3w/f9Kp07CH5ICkU
+mXLI0N4M7IXdpuyGTNQYwc269RY5TDvydHuMKP7cS3E8Z2cjpikHyM9jXe48wVmz
+uzjFSgJ9Ma1agbjMwjKHIzmFjLw6TorgklslELjQ2K7AGLqMSKgv4GTLCRur13kt
+2U/g560+a6C5WlGX5rfUqq2fxQKBgQDu+EpadoOrFUBUmTbJQfFW4cDKt6lbVdfx
+rZAiH021F6A1lHiJo+7txwygLMSnJHZ1HZHboH/2T8NuoY3uo+xZwfH6kUX7o2ZX
+b/+L3oNO0C1PATaXc8VpFC9jUWodNkrirK+lRcY+4cF/OUFxN6jhg1GZJ3mLPLVb
+dXT/83q8aQKBgQDeklWlu2Ia5iw3d5+mmknFd8NBHlkqq58xD0t/8Nk36VlIIAiS
+Rrc/e2bnXb9SNrlOMuc9oIuOj/rP3lNlEtlETkCpTD5/3ObxkceVyJNGDOT5fheH
+0Gt5D6LtkOUkky0mvWUqlOzI1V443qZNLwmVJTzbPFVq9UCEl2BtqvxdVQKBgQCe
+VMf+1BM9IWF0K+eOxTBAHmd8aN++8kuXhyW+VftIhxTRK0QJ/iHqTT3iSocpLxGF
+W0guulLOQd78x/GgMeABQG0xVVuG9KZ0PHKWm6FocKn0dJtVEZG0o3kaVvD11ekb
+8sqVuHs3YqCvyKHBf91XPYis7uirBlgq9tHEW+/wMQKBgBypPdHYMDSCDx653G/b
+298PN1YoT2cYdfstJIBpQ/5IYBoCe0CHMT9Pcl6X2hF6LmrcgbSNgVyWCXqhrGQb
+bfmOCgDYf+wDd0ni47Y3x+YAc5hQPl8/OFoiu/6qOx9bJfU5yyXt+bIivejT9R2I
+52VG5ptQhtgZgTkT730tuwbh
+-----END PRIVATE KEY-----"""
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
@@ -44,8 +70,7 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'UIC.localhost', 'school1.localhost',
 
 # Django REST framework settings
 REST_FRAMEWORK = {
-    
-        'DEFAULT_RENDERER_CLASSES': (
+    'DEFAULT_RENDERER_CLASSES': (
         'rest_framework.renderers.JSONRenderer',
     ),
     'DEFAULT_PARSER_CLASSES': (
@@ -101,6 +126,14 @@ CORS_ALLOW_METHODS = [
     'OPTIONS',
 ]
 CORS_ALLOW_CREDENTIALS = True 
+
+# CSRF settings
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://school1.localhost:3000",
+    "http://uic.localhost:3000",
+]
 
 # Applications listed in SHARED_APPS will be synced to the public schema
 # SHARED_APPS
