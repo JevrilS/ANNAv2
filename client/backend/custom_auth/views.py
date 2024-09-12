@@ -1,11 +1,11 @@
-# custom_auth/views.py
+from .JsonExtension import classbinder
 from django.conf import settings
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Domain, UserProfile, User
@@ -19,7 +19,6 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import update_session_auth_hash
 from .models import PublicUser, School
 from rest_framework.generics import ListAPIView
-from .models import School
 from .serializers import SchoolSerializer, UserRegistrationSerializer
 from rest_framework import generics
 from django_tenants.utils import get_tenant_domain_model, get_public_schema_name
@@ -27,109 +26,104 @@ from .decorators import redirect_if_not_authenticated
 import logging
 from django_tenants.utils import schema_context
 from rest_framework.permissions import AllowAny  # Import AllowAny permission class
-logger = logging.getLogger(__name__)
-from rest_framework.permissions import IsAuthenticated, AllowAny  # Ensure these imports are present
-from rest_framework.decorators import api_view, permission_classes  # Import permission_classes
-from django.db import connection
-from .dialogflow_service import DialogflowService
+from google.oauth2 import service_account
 from rest_framework_simplejwt.tokens import AccessToken
-from django.http import JsonResponse
-from .dialogflow_service import detect_intent_event
-logger = logging.getLogger(__name__)
+import os
+from google.cloud import dialogflow_v2 as dialogflow
+from .dialogflow_service import DialogflowService
+from .JsonExtension import classbinder
+from google.auth import credentials
+# Set the path to the service account key file
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "C:/Users/sumay/Pictures/ANNAv2/client/backend/custom_auth/service_account.json"
+
+# Load credentials from the service account key file
+with open(os.environ["GOOGLE_APPLICATION_CREDENTIALS"]) as f:
+    credentials_info = json.load(f)
 
 # Initialize Dialogflow Service
 dialogflow_service = DialogflowService(
-    project_id=settings.GOOGLE_PROJECT_ID,
-    session_id=settings.DIALOGFLOW_SESSION_ID,
-    language_code=settings.DIALOGFLOW_SESSION_LANGUAGE_CODE
+    project_id="expanded-curve-435008-t2",
+    session_id="your-session-id",
+    language_code="en",
+    credentials_info=credentials_info
 )
+
+logger = logging.getLogger(__name__)
+
+def detect_intent_texts(project_id, session_id, text, language_code):
+    """Detect intent from text input."""
+    session_client = dialogflow.SessionsClient(credentials=dialogflow_service.credentials)
+    session = session_client.session_path(project_id, session_id)
+    text_input = dialogflow.TextInput(text=text, language_code=language_code)
+    query_input = dialogflow.QueryInput(text=text_input)
+    response = session_client.detect_intent(request={"session": session, "query_input": query_input})
+    return response.query_result
+
+def detect_intent_event(project_id, session_id, event, parameters, language_code, location_id="global"):
+    """Detect intent from event input."""
+    session_client = dialogflow.SessionsClient(credentials=dialogflow_service.credentials)
+    session = session_client.session_path(project_id, session_id)
+    if location_id != "global":
+        session = f"projects/{project_id}/locations/{location_id}/agent/sessions/{session_id}"
+    event_input = dialogflow.EventInput(name=event, parameters=parameters, language_code=language_code)
+    query_input = dialogflow.QueryInput(event=event_input)
+    response = session_client.detect_intent(request={"session": session, "query_input": query_input})
+    return response.query_result
 
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def df_event_query(request):
-    """
-    Handles Dialogflow event queries from the client application.
-    """
+    """Handle Dialogflow event queries."""
     if request.method == 'POST':
         try:
             body = json.loads(request.body.decode('utf-8'))
             event = body.get('event')
-            user_id = body.get('userId')
-            parameters = body.get('parameters', {})
-            language_code = body.get('languageCode', 'en')  # Default to 'en' if not provided
+            parameters = body.get('parameters') or {}
 
-            # Log the incoming request
-            logger.debug(f"Received event query: {event} for user: {user_id}")
+            logger.debug(f"Received event: {event}, parameters: {parameters}")
 
-            response = detect_intent_event(event, user_id, parameters, language_code)
-            
-            # Log the Dialogflow response
-            logger.debug(f"Dialogflow response: {response}")
+            # Handle FALLBACK_EXCEED_TRIGGER_LIMIT specifically
+            if event == 'FALLBACK_EXCEED_TRIGGER_LIMIT':
+                logger.info(f"Handling special case for event: {event}")
+                return JsonResponse({'message': 'Too many fallbacks, please try again later'}, status=200)
 
-            # Ensure all objects in response_data are JSON serializable
-            response_data = {
-                'fulfillmentText': response.fulfillment_text,
-                'intent': response.intent.display_name,
-                'parameters': response.parameters
-            }
+            session_id = body.get('session_id')
+            language_code = body.get('language_code', 'en')
 
-            return JsonResponse(response_data, status=200)
+            # Call the detect_intent_event function
+            result = detect_intent_event(dialogflow_service.project_id, session_id, event, parameters, language_code)
+
+            # Serialize and return the result
+            return JsonResponse({"fulfillment_text": result.fulfillment_text}, safe=False)
         except Exception as e:
-            logger.error(f"Error processing Dialogflow event query: {e}")
+            logger.error(f"Error processing event query: {str(e)}")
             return JsonResponse({'error': str(e)}, status=500)
     else:
-        return JsonResponse({'error': 'Invalid request method'}, status=405)
+        return JsonResponse({'error': 'Invalid request method'}, status=400)
+
+
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def df_text_query(request):
+    """Handle Dialogflow text queries."""
     if request.method == 'POST':
         try:
             body = json.loads(request.body.decode('utf-8'))
             text = body.get('text')
-            user_id = body.get('userId')
-            parameters = body.get('parameters', {})
-            language_code = body.get('languageCode', 'en')  # Default to 'en' if not provided
+            session_id = body.get('session_id')
+            language_code = body.get('language_code', 'en')
 
-            # Log the incoming request
-            logger.debug(f"Received text query: {text} for user: {user_id}")
+            # Call the detect_intent_text function
+            result = detect_intent_texts(dialogflow_service.project_id, session_id, text, language_code)
 
-            response = detect_intent_text(text, user_id, parameters, language_code)
-            
-            # Log the Dialogflow response
-            logger.debug(f"Dialogflow response: {response}")
-
-            # Ensure all objects in response_data are JSON serializable
-            response_data = {
-                'fulfillmentText': response.fulfillment_text,
-                'intent': response.intent.display_name,
-                'parameters': response.parameters
-            }
-
-            return JsonResponse(response_data, status=200)
+            # Serialize and return the result
+            return JsonResponse({"fulfillment_text": result.fulfillment_text}, safe=False)
         except Exception as e:
-            logger.error(f"Error processing Dialogflow text query: {e}")
+            logger.error(f"Error processing text query: {str(e)}")
             return JsonResponse({'error': str(e)}, status=500)
     else:
-        return JsonResponse({'error': 'Invalid request method'}, status=405)
-
-
-
-def convert_to_serializable(obj):
-    """
-    Recursively converts MapComposite or other non-serializable objects to serializable types.
-    """
-    if isinstance(obj, dict):
-        return {k: convert_to_serializable(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [convert_to_serializable(i) for i in obj]
-    elif hasattr(obj, 'fields'):  # For handling Dialogflow composite objects
-        return {k: convert_to_serializable(v) for k, v in obj.fields.items()}
-    elif hasattr(obj, 'list_value'):  # For handling list_value objects
-        return [convert_to_serializable(i) for i in obj.list_value.values]
-    else:
-        return obj
-
-
+        return JsonResponse({'error': 'Invalid request method'}, status=400)
 
 @csrf_exempt
 def dialogflow_fulfillment(request):
@@ -399,18 +393,7 @@ def check_schema_view(request):
     return JsonResponse({'current_schema': schema})
 
 logger = logging.getLogger(__name__)
-def convert_to_serializable(obj):
-    """
-    Recursively converts MapComposite or other non-serializable objects to serializable types.
-    """
-    if isinstance(obj, dict):
-        return {k: convert_to_serializable(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [convert_to_serializable(i) for i in obj]
-    elif hasattr(obj, 'fields'):  # For handling Dialogflow composite objects
-        return {k: convert_to_serializable(v) for k, v in obj.fields.items()}
-    else:
-        return obj
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
