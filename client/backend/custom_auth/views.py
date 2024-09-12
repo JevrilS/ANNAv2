@@ -1,3 +1,4 @@
+from google.protobuf.struct_pb2 import Struct
 from .JsonExtension import classbinder
 from django.conf import settings
 from django.shortcuts import render
@@ -31,10 +32,20 @@ from rest_framework_simplejwt.tokens import AccessToken
 import os
 from google.cloud import dialogflow_v2 as dialogflow
 from .dialogflow_service import DialogflowService
-from .JsonExtension import classbinder
 from google.auth import credentials
+import uuid
+from google.protobuf.json_format import MessageToDict
+import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+
+
+
 # Set the path to the service account key file
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "C:/Users/sumay/Pictures/ANNAv2/client/backend/custom_auth/service_account.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.GOOGLE_APPLICATION_CREDENTIALS
+
+# Initialize logging
+logger = logging.getLogger(__name__)
 
 # Load credentials from the service account key file
 with open(os.environ["GOOGLE_APPLICATION_CREDENTIALS"]) as f:
@@ -48,28 +59,6 @@ dialogflow_service = DialogflowService(
     credentials_info=credentials_info
 )
 
-logger = logging.getLogger(__name__)
-
-def detect_intent_texts(project_id, session_id, text, language_code):
-    """Detect intent from text input."""
-    session_client = dialogflow.SessionsClient(credentials=dialogflow_service.credentials)
-    session = session_client.session_path(project_id, session_id)
-    text_input = dialogflow.TextInput(text=text, language_code=language_code)
-    query_input = dialogflow.QueryInput(text=text_input)
-    response = session_client.detect_intent(request={"session": session, "query_input": query_input})
-    return response.query_result
-
-def detect_intent_event(project_id, session_id, event, parameters, language_code, location_id="global"):
-    """Detect intent from event input."""
-    session_client = dialogflow.SessionsClient(credentials=dialogflow_service.credentials)
-    session = session_client.session_path(project_id, session_id)
-    if location_id != "global":
-        session = f"projects/{project_id}/locations/{location_id}/agent/sessions/{session_id}"
-    event_input = dialogflow.EventInput(name=event, parameters=parameters, language_code=language_code)
-    query_input = dialogflow.QueryInput(event=event_input)
-    response = session_client.detect_intent(request={"session": session, "query_input": query_input})
-    return response.query_result
-
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def df_event_query(request):
@@ -78,29 +67,36 @@ def df_event_query(request):
         try:
             body = json.loads(request.body.decode('utf-8'))
             event = body.get('event')
-            parameters = body.get('parameters') or {}
-
-            logger.debug(f"Received event: {event}, parameters: {parameters}")
-
-            # Handle FALLBACK_EXCEED_TRIGGER_LIMIT specifically
-            if event == 'FALLBACK_EXCEED_TRIGGER_LIMIT':
-                logger.info(f"Handling special case for event: {event}")
-                return JsonResponse({'message': 'Too many fallbacks, please try again later'}, status=200)
-
-            session_id = body.get('session_id')
+            session_id = body.get('session_id', str(uuid.uuid4()))  # Generate a new session if not provided
             language_code = body.get('language_code', 'en')
 
-            # Call the detect_intent_event function
-            result = detect_intent_event(dialogflow_service.project_id, session_id, event, parameters, language_code)
+            if not event:
+                return JsonResponse({'error': 'Missing event parameter'}, status=400)
 
-            # Serialize and return the result
-            return JsonResponse({"fulfillment_text": result.fulfillment_text}, safe=False)
+            # Call the detect_intent_event method from DialogflowService
+            result = dialogflow_service.detect_intent_event(event, {}, session_id=session_id, language_code=language_code)
+
+            # Ensure fulfillment text and parameters exist
+            fulfillment_text = result.fulfillment_text or "Sorry, I didn't catch that."
+            parameters = getattr(result.parameters, 'fields', {})
+
+            logger.info(f"Full Dialogflow Response: {result}")
+            logger.info(f"Fulfillment text: {fulfillment_text}")
+            logger.info(f"Parameters: {parameters}")
+
+            return JsonResponse({
+                "fulfillment_text": fulfillment_text,
+                "parameters": {key: val.string_value for key, val in parameters.items()}  # Convert parameters to simple dict
+            })
+
+        except json.JSONDecodeError as json_err:
+            logger.error(f"JSON decoding error: {str(json_err)}")
+            return JsonResponse({'error': 'Invalid JSON in request'}, status=400)
         except Exception as e:
             logger.error(f"Error processing event query: {str(e)}")
             return JsonResponse({'error': str(e)}, status=500)
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=400)
-
 
 
 @csrf_exempt
@@ -111,14 +107,30 @@ def df_text_query(request):
         try:
             body = json.loads(request.body.decode('utf-8'))
             text = body.get('text')
-            session_id = body.get('session_id')
+            session_id = body.get('session_id', str(uuid.uuid4()))  # Generate a new session if not provided
             language_code = body.get('language_code', 'en')
 
-            # Call the detect_intent_text function
-            result = detect_intent_texts(dialogflow_service.project_id, session_id, text, language_code)
+            if not text:
+                return JsonResponse({'error': 'Missing text parameter'}, status=400)
 
-            # Serialize and return the result
-            return JsonResponse({"fulfillment_text": result.fulfillment_text}, safe=False)
+            # Call the detect_intent_texts method from DialogflowService
+            result = dialogflow_service.detect_intent_texts(text, session_id=session_id, language_code=language_code)
+
+            # Ensure fulfillment text and parameters exist
+            fulfillment_text = result.fulfillment_text or "Sorry, I didn't catch that."
+            parameters = getattr(result.parameters, 'fields', {})
+
+            logger.info(f"Fulfillment text: {fulfillment_text}")
+            logger.info(f"Parameters: {parameters}")
+
+            return JsonResponse({
+                "fulfillment_text": fulfillment_text,
+                "parameters": {key: val.string_value for key, val in parameters.items()}  # Convert parameters to simple dict
+            })
+
+        except json.JSONDecodeError as json_err:
+            logger.error(f"JSON decoding error: {str(json_err)}")
+            return JsonResponse({'error': 'Invalid JSON in request'}, status=400)
         except Exception as e:
             logger.error(f"Error processing text query: {str(e)}")
             return JsonResponse({'error': str(e)}, status=500)
@@ -175,6 +187,23 @@ def dialogflow_fulfillment(request):
             # Process the intent
             agent.handle_request(intent_map)
 
+            # Additional code to handle specific intents or actions
+            if agent.intent == 'Default Welcome Intent':
+                response = {
+                    "fulfillmentText": "Good day. I'm Anna 😉, I'm here to give you a recommendation on what degree programs you could choose in college. To start our session today, I just have a few questions for you to get your basic information. Let's get started!",
+                    "outputContexts": [
+                        {
+                            "name": "projects/your-project-id/agent/sessions/your-session-id/contexts/basic-info",
+                            "lifespanCount": 10
+                        },
+                        {
+                            "name": "projects/your-project-id/agent/sessions/your-session-id/contexts/await-name",
+                            "lifespanCount": 1
+                        }
+                    ]
+                }
+                return JsonResponse(response)
+
             return JsonResponse({'status': 'success'}, status=200)
 
         except Exception as e:
@@ -182,6 +211,7 @@ def dialogflow_fulfillment(request):
             return JsonResponse({'error': str(e)}, status=500)
 
     return JsonResponse({'error': 'Method not allowed'}, status=405)
+
 
 class UserDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -320,21 +350,7 @@ class FeedbackView(APIView):
         feedback = request.data.get('feedback')
         return Response({"message": "Feedback received successfully!", "feedback": feedback}, status=status.HTTP_200_OK)
 
-from django.shortcuts import render
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import authenticate, login
-from django_tenants.utils import schema_context, get_tenant_domain_model
-from django.db import connection
-from .models import Domain, User, School
-import logging
-import json
 
-logger = logging.getLogger(__name__)
 
 @api_view(['POST'])
 @permission_classes([AllowAny])

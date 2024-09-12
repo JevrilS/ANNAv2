@@ -15,7 +15,8 @@ from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
 from google.oauth2 import service_account
-from google.cloud import dialogflow_v2 as dialogflow
+
+GOOGLE_APPLICATION_CREDENTIALS = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', 'C:/Users/sumay/Pictures/ANNAv2/client/backend/custom_auth/service_account.json')
 
 load_dotenv()  # Loads environment variables from .env file
 

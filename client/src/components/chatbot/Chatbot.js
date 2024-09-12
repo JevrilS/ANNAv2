@@ -58,13 +58,21 @@ const Chatbot = () => {
    const [fallbackCount, setFallbackCount] = useState({});
    const [endConversation, setEndConversation] = useState(false); // state for purposely ending the conversation
 
-   // recommeded courses
    const [knownCourses, setKnownCourses] = useState([]);
    const [riasecBasedRecommendedCourses, setRiasecBasedRecommendedCourses] = useState([]);
    const [strandBasedRecommendedCourses, setStrandBasedRecommendedCourses] = useState([]);
 
-   // if cookies does not exist set cookies else do nothing, cookies path = '/ - accessible to all pages
-   if (!cookies.get('userId')) cookies.set('userId', uuid(), { path: '/' });
+   // Set cookies only when the component is mounted
+   useEffect(() => {
+      if (!cookies.get('userId')) {
+         cookies.set('userId', uuid(), { path: '/' });
+      }
+   }, []);
+
+   const startChat = () => {
+      setShowbot(true); // Show the chatbot UI
+      df_event_query('Welcome'); // Trigger the "Default Welcome Intent"
+   };
 
    const df_text_query = async (text, parameters) => {
       let userSays = {
@@ -131,16 +139,19 @@ const Chatbot = () => {
           }
     
           // Update user state if parameters were returned
-          if (data.parameters.fields) {
+          if (data.parameters && data.parameters.fields) {
             const fields = data.parameters.fields;
             setUser((prev) => ({
-              ...prev,
-              name: fields.name?.stringValue || prev.name,
-              age: fields.age?.numberValue || prev.age,
-              sex: fields.sex?.stringValue || prev.sex,
-              strand: fields.strand?.stringValue || prev.strand,
+                ...prev,
+                name: fields.name?.stringValue || prev.name,
+                age: fields.age?.numberValue || prev.age,
+                sex: fields.sex?.stringValue || prev.sex,
+                strand: fields.strand?.stringValue || prev.strand,
             }));
-          }
+        } else {
+            console.warn('No parameters returned in Dialogflow response.');
+        }
+        
     
           // Process fulfillment messages from Dialogflow
           data.fulfillmentMessages.forEach((msg) => {
@@ -228,152 +239,104 @@ const Chatbot = () => {
       }
     };
     
-
-    const df_event_query = async (event, parameters) => {
+    const df_event_query = async (event, parameters = {}) => {
       try {
-        setBotChatLoading(true);
-    
-        const body = {
-          event,
-          userId: cookies.get('userId'),
-          parameters: parameters || {},  // Ensure parameters is an object
-          languageCode: 'en',  // Ensure language code is set properly
-        };
-    
-        // Fetch the response from Django backend, which interacts with Dialogflow
-        const response = await fetch('/api/df_event_query/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-    
-        const data = await response.json();
-        setBotChatLoading(false);
-    
-        if (response.ok) {
+          setBotChatLoading(true);
+  
+          const body = {
+              event,
+              userId: cookies.get('userId'),
+              parameters,
+              languageCode: 'en',
+          };
+  
+          const response = await fetch('/api/df_event_query/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+          });
+  
+          const data = await response.json();
+          setBotChatLoading(false);
+  
           console.log('Full Dialogflow Response:', JSON.stringify(data, null, 2));
-    
-          // If the welcome intent is detected, clear the chat state
-          if (data.intent && data.intent.displayName === 'Default Welcome Intent') {
-            clearState();
-            // Automatically send the next request to ask for the user's name
-            df_event_query('ASK_NAME');
-          } else if (!data.intent) {
-            // Handle fallback or no intent match
-            df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
-            clearState();
-            setEndConversation(true);
-            setDisabledInput(false);
-            setIsVisibleInput(true);
-          }
-    
-          // Process the fulfillment messages from Dialogflow
-          if (Array.isArray(data.fulfillmentMessages)) {
-            data.fulfillmentMessages.forEach((msg) => {
-              if (msg.text && msg.text.text) {
-                // Render the fulfillment text in the chat
-                const botSays = {
-                  speaks: 'bot',
-                  msg: {
-                    text: {
-                      text: msg.text.text[0],  // Assuming the first element in the text array
-                    },
-                  },
-                };
-                setMessages((prev) => [...prev, botSays]);
-    
-                // Automatically send the next request if the message asks for the user's name
-                if (msg.text.text[0].includes("What is your name?")) {
-                  df_event_query('ASK_NAME');
-                }
-              }
-    
-              // Handle specific payloads
-              if (msg.payload && msg.payload.fields) {
-                // Handle strand recommendation trigger
-                if (msg.payload.fields.iswant_strand_recommendation) {
-                  df_event_query('STRAND_RECOMMENDATION', { strand: user.strand });
-                  setIsRecommendationProvided((prev) => ({ ...prev, strand: 'done' }));
-                }
-    
-                // Handle RIASEC recommendation cases
-                if (msg.payload.fields.no_riasec_recommended_courses) {
-                  setIsRecommendationProvided((prev) => ({ ...prev, riasec: '' }));
-                }
-    
-                if (msg.payload.fields.riasec_recommended_courses) {
-                  const recommendedCourses = msg.payload.fields.riasec_recommended_courses.listValue.values;
-                  setRiasecBasedRecommendedCourses(recommendedCourses.map(course => course.stringValue));
-                }
-    
-                if (msg.payload.fields.strand_recommended_courses) {
-                  const recommendedCourses = msg.payload.fields.strand_recommended_courses.listValue.values;
-                  setStrandBasedRecommendedCourses(recommendedCourses.map(course => course.stringValue));
-                }
-    
-                // Handle conversation end
-                if (msg.payload.fields.end_conversation) {
-                  savedConversation(user, riasecCode, riasecBasedRecommendedCourses, strandBasedRecommendedCourses);
-                  clearState();
-                  setDisabledInput(true);
-                  setIsVisibleInput(false);
-                }
-              }
-            });
-          }
-    
-          // Check and log parameters
-          if (data.parameters && data.parameters.fields && Object.keys(data.parameters.fields).length > 0) {
-            console.log('Parameters:', data.parameters.fields);
-    
-            Object.keys(data.parameters.fields).forEach((key) => {
-              const param = data.parameters.fields[key];
-    
-              if (param.stringValue) {
-                console.log(`${key}: ${param.stringValue}`);
-              } else if (param.numberValue) {
-                console.log(`${key}: ${param.numberValue}`);
-              } else if (param.structValue) {
-                console.log(`${key}: ${JSON.stringify(param.structValue)}`);
-              } else if (param.listValue) {
-                console.log(`${key}: ${param.listValue.values.map(v => v.stringValue || v.numberValue || JSON.stringify(v.structValue))}`);
-              } else {
-                console.log(`${key}: Unknown parameter type`);
-              }
-            });
+  
+          // Handle response based on the structure received
+          let intent = 'undefined';
+          if (data.queryResult) {
+              intent = data.queryResult.intent ? data.queryResult.intent.displayName : 'undefined';
+          } else if (data.fulfillment_text) {
+              // Handle case where only fulfillment_text is present
+              intent = 'fulfillment_text_only';
           } else {
-            console.warn('No parameters returned in Dialogflow response.');
+              console.log('queryResult not found in the response:', data);
           }
-    
-        } else {
-          // Handle non-JSON response
+  
+          console.log('Detected Intent:', intent);
+  
+          switch (intent) {
+              case 'Default Welcome Intent':
+                  clearState();
+                  df_event_query('await_name');
+                  break;
+              case 'get-name':
+                  // Handle name collection
+                  break;
+              case 'get-age':
+                  // Handle age collection
+                  break;
+              case 'fulfillment_text_only':
+                  // Handle case where only fulfillment_text is present
+                  const botSays = {
+                      speaks: 'bot',
+                      msg: {
+                          text: {
+                              text: data.fulfillment_text,
+                          },
+                      },
+                  };
+                  setMessages((prev) => [...prev, botSays]);
+                  break;
+              default:
+                  console.log('Unhandled intent:', intent);
+                  df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
+                  clearState();
+                  setEndConversation(true);
+                  setDisabledInput(false);
+                  setIsVisibleInput(true);
+                  break;
+          }
+  
+          if (data.queryResult && Array.isArray(data.queryResult.fulfillmentMessages)) {
+              data.queryResult.fulfillmentMessages.forEach((msg) => {
+                  if (msg.text && msg.text.text) {
+                      const botSays = {
+                          speaks: 'bot',
+                          msg: {
+                              text: {
+                                  text: msg.text.text[0],
+                              },
+                          },
+                      };
+                      setMessages((prev) => [...prev, botSays]);
+                  }
+              });
+          }
+      } catch (err) {
+          console.error('Error in df_event_query:', err.message);
+          setBotChatLoading(false);
           const botSays = {
-            speaks: 'bot',
-            msg: {
-              text: {
-                text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
+              speaks: 'bot',
+              msg: {
+                  text: {
+                      text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
+                  },
               },
-            },
           };
           setMessages((prev) => [...prev, botSays]);
-        }
-      } catch (err) {
-        console.error('Error in df_event_query:', err.message);
-    
-        setBotChatLoading(false);
-    
-        const botSays = {
-          speaks: 'bot',
-          msg: {
-            text: {
-              text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
-            },
-          },
-        };
-        setMessages((prev) => [...prev, botSays]);
       }
-    };
-
+  };
+  
    const triggerCourseOptionYes = () => {
       // this will keep the context exceeds the time limit of 20mins, because users might take time watching the videos
       // after the  course options was rendered, trigger the course option timer after 15 minutes to reset the timer of the intent's context
@@ -384,7 +347,7 @@ const Chatbot = () => {
          const timerId = setInterval(async () => {
             try {
                const body = { event: 'COURSE_OPTIONS_YES', userId: cookies.get('userId') };
-               await fetch('/api/df_event_query', {
+               await fetch('/api/df_event_query/', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(body),
@@ -690,9 +653,10 @@ const Chatbot = () => {
 
    return (
       <>
+         {/* Chatbot UI */}
          {showBot ? (
             <div className='chatbot shadow'>
-               {/* chatbot header */}
+               {/* Chatbot Header */}
                <div className='chatbot-header d-flex justify-content-between align-items-center bg-primary'>
                   <div>
                      <img className='chatbot-avatar' src={chathead} alt='chathead' />
@@ -700,14 +664,10 @@ const Chatbot = () => {
                   </div>
                   <MdClose className='chatbot-close' onClick={() => setShowbot(false)} />
                </div>
-               {/* chatbot messages */}
-               <div ref={messagesRef} className='chatbot-messages'>
-                  {/* <button className='btn btn-primary' onClick={() => handleRiasecRecommendation(riasec)}>
-                     Identify RIASEC Area
-                  </button> */}
 
+               {/* Chatbot Messages */}
+               <div ref={messagesRef} className='chatbot-messages'>
                   {renderMessages(messages)}
-                  {/* <div ref={messageEnd}></div> */}
                   {botChatLoading && (
                      <div className='message bot'>
                         <div>
@@ -719,28 +679,32 @@ const Chatbot = () => {
                      </div>
                   )}
                </div>
-               {/* text-input */}
+
+               {/* Text Input */}
                <form className='chatbot-text-input' onSubmit={send}>
                   <input
                      ref={inputRef}
                      className={`${isVisibleInput ? 'visible' : 'invisible'}`}
-                     disabled={!isAgreeTermsConditions || disabledInput ? true : false}
+                     disabled={!isAgreeTermsConditions || disabledInput}
                      value={textMessage}
                      type='text'
                      placeholder='Your answer here...'
-                     onChange={e => setTextMessage(e.target.value)}
+                     onChange={(e) => setTextMessage(e.target.value)}
                   />
-                  <button className='btn p-0 chatbot-send' disabled={!textMessage ? true : false} type='submit'>
+                  <button className='btn p-0 chatbot-send' disabled={!textMessage} type='submit'>
                      <MdSend className={`chatbot-send text-primary ${isVisibleInput ? 'visible' : 'invisible'}`} />
                   </button>
                </form>
             </div>
          ) : (
-            <div className='chathead-container'>
-               <div className='chathead-message'>Hi! Chat with me 😊</div>
-               <img className='chathead' src={chathead} alt='chathead' onClick={() => setShowbot(true)} />
+            <div className="chathead-container">
+               <div className="chathead-message">Hi! Chat with me 😊</div>
+               <button className="btn btn-primary" onClick={startChat}>
+                  Start Chat
+               </button>
+               <img className="chathead" src={chathead} alt="chathead" onClick={startChat} />
             </div>
-         )}
+)}
 
          {/* terms & conditions modal */}
          <Modal title='Terms and Conditions' target='modal-terms-conditions' size='modal-lg'>
