@@ -69,10 +69,7 @@ const Chatbot = () => {
       }
    }, []);
 
-   const startChat = () => {
-      setShowbot(true); // Show the chatbot UI
-      df_event_query('Welcome'); // Trigger the "Default Welcome Intent"
-   };
+
 
    const df_text_query = async (text, parameters) => {
       let userSays = {
@@ -654,111 +651,103 @@ const Chatbot = () => {
    return (
       <>
          {/* Chatbot UI */}
-         {showBot ? (
-            <div className='chatbot shadow'>
-               {/* Chatbot Header */}
-               <div className='chatbot-header d-flex justify-content-between align-items-center bg-primary'>
-                  <div>
-                     <img className='chatbot-avatar' src={chathead} alt='chathead' />
-                     <h2 className='ms-2 h6 d-inline custom-heading'>Anna</h2>
-                  </div>
-                  <MdClose className='chatbot-close' onClick={() => setShowbot(false)} />
-               </div>
+{showBot && (
+  <div className='chatbot shadow'>
+    {/* Chatbot Header */}
+    <div className='chatbot-header d-flex justify-content-between align-items-center bg-primary'>
+      <div>
+        <img className='chatbot-avatar' src={chathead} alt='chathead' />
+        <h2 className='ms-2 h6 d-inline custom-heading'>Anna</h2>
+      </div>
+      <MdClose className='chatbot-close' onClick={() => setShowbot(false)} />
+    </div>
 
-               {/* Chatbot Messages */}
-               <div ref={messagesRef} className='chatbot-messages'>
-                  {renderMessages(messages)}
-                  {botChatLoading && (
-                     <div className='message bot'>
-                        <div>
-                           <img className='chatbot-avatar message-avatar' src={chatbotAvatar} alt='chathead' />
-                        </div>
-                        <div className='message-text bot'>
-                           <img className='message-loading' src={chatloading} alt='loading' />
-                        </div>
-                     </div>
-                  )}
-               </div>
+    {/* Chatbot Messages */}
+    <div ref={messagesRef} className='chatbot-messages'>
+      {renderMessages(messages)}
+      {botChatLoading && (
+        <div className='message bot'>
+          <div>
+            <img className='chatbot-avatar message-avatar' src={chatbotAvatar} alt='chathead' />
+          </div>
+          <div className='message-text bot'>
+            <img className='message-loading' src={chatloading} alt='loading' />
+          </div>
+        </div>
+      )}
+    </div>
 
-               {/* Text Input */}
-               <form className='chatbot-text-input' onSubmit={send}>
-                  <input
-                     ref={inputRef}
-                     className={`${isVisibleInput ? 'visible' : 'invisible'}`}
-                     disabled={!isAgreeTermsConditions || disabledInput}
-                     value={textMessage}
-                     type='text'
-                     placeholder='Your answer here...'
-                     onChange={(e) => setTextMessage(e.target.value)}
-                  />
-                  <button className='btn p-0 chatbot-send' disabled={!textMessage} type='submit'>
-                     <MdSend className={`chatbot-send text-primary ${isVisibleInput ? 'visible' : 'invisible'}`} />
-                  </button>
-               </form>
-            </div>
-         ) : (
-            <div className="chathead-container">
-               <div className="chathead-message">Hi! Chat with me 😊</div>
-               <button className="btn btn-primary" onClick={startChat}>
-                  Start Chat
-               </button>
-               <img className="chathead" src={chathead} alt="chathead" onClick={startChat} />
-            </div>
+    {/* Text Input */}
+    <form className='chatbot-text-input' onSubmit={send}>
+      <input
+        ref={inputRef}
+        className={`${isVisibleInput ? 'visible' : 'invisible'}`}
+        disabled={!isAgreeTermsConditions || disabledInput}
+        value={textMessage}
+        type='text'
+        placeholder='Your answer here...'
+        onChange={(e) => setTextMessage(e.target.value)}
+      />
+      <button className='btn p-0 chatbot-send' disabled={!textMessage} type='submit'>
+        <MdSend className={`chatbot-send text-primary ${isVisibleInput ? 'visible' : 'invisible'}`} />
+      </button>
+    </form>
+  </div>
 )}
 
-         {/* terms & conditions modal */}
-         <Modal title='Terms and Conditions' target='modal-terms-conditions' size='modal-lg'>
-            <div className='p-2'>
-               <p>In using Anna, you agree to these terms and conditions:</p>
-               <ol className='m-0' type='A'>
-                  <li>All responses and correspondences with Anna will be recorded.</li>
-                  <li>
-                     Information such as name (required), age (required), sex (required), senior high school strand (required), and related
-                     correspondence will be for the exclusive use of this study to continuously improve Anna.
-                  </li>
-                  <li>The data collected will be used for as long as it is needed for further analysis or investigation.</li>
-                  <li>You are free to exit the conversation with Anna if you feel the need to do so.</li>
-               </ol>
-            </div>
+   {/* Terms & Conditions Modal */}
+   <Modal title='Terms and Conditions' target='modal-terms-conditions' size='modal-lg'>
+   <div className='p-2'>
+      <p>In using Anna, you agree to these terms and conditions:</p>
+      <ol className='m-0' type='A'>
+         <li>All responses and correspondences with Anna will be recorded.</li>
+         <li>
+         Information such as name (required), age (required), sex (required), senior high school strand (required), and related
+         correspondence will be for the exclusive use of this study to continuously improve Anna.
+         </li>
+         <li>The data collected will be used for as long as it is needed for further analysis or investigation.</li>
+         <li>You are free to exit the conversation with Anna if you feel the need to do so.</li>
+      </ol>
+   </div>
 
-            <div className='p-2'>
-               <h1 className='h5 custom-heading text-primary'>TITLE OF STUDY:</h1>
-               <p className='mb-1'>ANNA: A Web-based Chatbot for Career Planning following Cooperative Principle</p>
-            </div>
+   <div className='p-2'>
+      <h1 className='h5 custom-heading text-primary'>TITLE OF STUDY:</h1>
+      <p className='mb-1'>ANNA: A Web-based Chatbot for Career Planning following Cooperative Principle</p>
+   </div>
 
-            <div className='p-2'>
-               <h1 className='h5 custom-heading text-primary'>RESEARCHERS:</h1>
-               <p className='mb-1'>Rey Mond Gomera, John Michael Amto, Ryan Christian Hibaya</p>
-            </div>
+   <div className='p-2'>
+      <h1 className='h5 custom-heading text-primary'>RESEARCHERS:</h1>
+      <p className='mb-1'>Rey Mond Gomera, John Michael Amto, Ryan Christian Hibaya</p>
+   </div>
 
-            <div className='p-2'>
-               <h1 className='h5 custom-heading text-primary'>USER GUIDELINES:</h1>
-               <p>Anna could only converse in the English language. It is then recommended that your responses be in English.</p>
-               <p>
-                  If the user is idle for more than 20 minutes, Anna would end the conversation by replying with phrases like, "I think I lost you
-                  there. Please do reach out to me again anytime. I'll be here 😊". If this happens, greeting Anna with words like "Hello", or "Hi",
-                  will start a new conversation.
-               </p>
-               <p className='mb-1'>
-                  If any problems occur during the conversation process, or you have any suggestions or comments you would like to share with the
-                  researchers, please leave a feedback
-                  <a className='text-primary ms-1' href='/#feedback'>
-                     here
-                  </a>
-                  . Your insights and suggestions would help improve our project.
-               </p>
-            </div>
+   <div className='p-2'>
+      <h1 className='h5 custom-heading text-primary'>USER GUIDELINES:</h1>
+      <p>Anna could only converse in the English language. It is then recommended that your responses be in English.</p>
+      <p>
+         If the user is idle for more than 20 minutes, Anna would end the conversation by replying with phrases like, "I think I lost you
+         there. Please do reach out to me again anytime. I'll be here 😊". If this happens, greeting Anna with words like "Hello", or "Hi",
+         will start a new conversation.
+      </p>
+      <p className='mb-1'>
+         If any problems occur during the conversation process, or you have any suggestions or comments you would like to share with the
+         researchers, please leave feedback
+         <a className='text-primary ms-1' href='/#feedback'>
+         here
+         </a>
+         . Your insights and suggestions would help improve our project.
+      </p>
+   </div>
 
-            <div className='p-2'>
-               <h1 className='h5 custom-heading text-primary'>CONFIDENTIALITY</h1>
-               <p>
-                  The information that Anna will be obtaining throughout the conversation will remain confidential to protect your rights or welfare.
-               </p>
-               <p>
-                  RA 10173 or the Data Privacy Act protects individuals from unauthorized processing of personal information. To ensure that your
-                  information is protected, the researchers will follow this law to keep your information safe and confidential.
-               </p>
-            </div>
+   <div className='p-2'>
+      <h1 className='h5 custom-heading text-primary'>CONFIDENTIALITY</h1>
+      <p>
+         The information that Anna will be obtaining throughout the conversation will remain confidential to protect your rights or welfare.
+      </p>
+      <p>
+         RA 10173 or the Data Privacy Act protects individuals from unauthorized processing of personal information. To ensure that your
+         information is protected, the researchers will follow this law to keep your information safe and confidential.
+      </p>
+   </div>
 
             <div className='p-2'>
                <h1 className='h5 custom-heading text-primary'>DEFINITIONS</h1>

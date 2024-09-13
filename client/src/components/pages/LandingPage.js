@@ -14,11 +14,17 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import api from '../../styles/../utils/api'; // Import the Axios instance
+import Kommunicate from "@kommunicate/kommunicate-chatbot-plugin";
+
 
 window.$ = $;
 window.jQuery = $;
 
 const LandingPage = () => {
+  Kommunicate.init("3fb3f663dec75e7eb50596f39f46f29ac", {
+    automaticChatOpenOnNavigation: true,
+    popupWidget: true
+  });
   const [auth, setAuth] = useState(false); // Add state for authentication
   const { setShowbot } = useContext(ChatbotContext);
 

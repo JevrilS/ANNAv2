@@ -53,7 +53,7 @@ with open(os.environ["GOOGLE_APPLICATION_CREDENTIALS"]) as f:
 
 # Initialize Dialogflow Service
 dialogflow_service = DialogflowService(
-    project_id="expanded-curve-435008-t2",
+    project_id="annadialogflow",
     session_id="your-session-id",
     language_code="en",
     credentials_info=credentials_info
