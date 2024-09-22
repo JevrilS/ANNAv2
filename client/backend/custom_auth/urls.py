@@ -1,5 +1,5 @@
 # custom_auth/urls.py
-
+from django.views.generic import TemplateView
 from django.urls import path
 from .views import (
     register,
@@ -11,15 +11,14 @@ from .views import (
     ChangePasswordView,
     SchoolListView,
     check_schema_view,
-    df_text_query,             # Add the Dialogflow text query view
-    df_event_query,            # Add the Dialogflow event query view
+    df_query,             # Add the Dialogflow text query view
     dialogflow_fulfillment,
     guidance_login_view,    # Add the fulfillment webhook view
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
-    path('', home_view, name='home'),
+    path('', TemplateView.as_view(template_name='custom_auth/index.html'), name='home'),
     path('register/', register, name='register'),
     path('feedback/', FeedbackView.as_view(), name='feedback'),
     path('is-verify/', is_varify, name='is_verify'),
@@ -33,8 +32,6 @@ urlpatterns = [
     path('auth/guidance-login/', guidance_login_view, name='guidance-login'),
 
     # Dialogflow API endpoints
-    path('api/df_text_query/', df_text_query, name='df_text_query'),
     path('api/dialogflow_fulfillment/', dialogflow_fulfillment, name='dialogflow_fulfillment'),
-    path('api/df_event_query/', df_event_query, name='df_event_query'),
-
+    path('api/df_query/', df_query, name='df_query'),
 ]

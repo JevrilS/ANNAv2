@@ -39,8 +39,6 @@ import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
-
-
 # Set the path to the service account key file
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.GOOGLE_APPLICATION_CREDENTIALS
 
@@ -58,151 +56,100 @@ dialogflow_service = DialogflowService(
     language_code="en",
     credentials_info=credentials_info
 )
-
 @csrf_exempt
-@permission_classes([IsAuthenticated])
-def df_event_query(request):
-    """Handle Dialogflow event queries."""
+def df_query(request):
+    """Handle Dialogflow queries (event or text)."""
     if request.method == 'POST':
         try:
             body = json.loads(request.body.decode('utf-8'))
-            event = body.get('event')
-            session_id = body.get('session_id', str(uuid.uuid4()))  # Generate a new session if not provided
+            logger.info(f"Received request body: {body}")
+            
+            query_type = body.get('type')
+            session_id = body.get('session_id')  # Expect session_id to be provided from the frontend
+            if not session_id:
+                logger.error("Session ID missing in request")
+                return JsonResponse({'error': 'Session ID is missing'}, status=400)
+
             language_code = body.get('language_code', 'en')
 
-            if not event:
-                return JsonResponse({'error': 'Missing event parameter'}, status=400)
+            if query_type == 'event':
+                event = body.get('event')
+                if not event:
+                    return JsonResponse({'error': 'Missing event parameter'}, status=400)
 
-            # Call the detect_intent_event method from DialogflowService
-            result = dialogflow_service.detect_intent_event(event, {}, session_id=session_id, language_code=language_code)
+                result = dialogflow_service.detect_intent_event(event, {}, session_id=session_id, language_code=language_code)
 
-            # Ensure fulfillment text and parameters exist
-            fulfillment_text = result.fulfillment_text or "Sorry, I didn't catch that."
-            parameters = getattr(result.parameters, 'fields', {})
+            elif query_type == 'text':
+                text = body.get('text')
+                if not text:
+                    logger.error("Text missing in request")
+                    return JsonResponse({'error': 'Missing text parameter'}, status=400)
 
-            logger.info(f"Full Dialogflow Response: {result}")
-            logger.info(f"Fulfillment text: {fulfillment_text}")
-            logger.info(f"Parameters: {parameters}")
+                result = dialogflow_service.detect_intent_texts(text, session_id=session_id, language_code=language_code)
+
+            else:
+                return JsonResponse({'error': 'Invalid query type'}, status=400)
+
+            intent_display_name = result.intent.display_name if result.intent else "Unknown Intent"
+            logger.info(f"Detected intent: {intent_display_name}")
+
+            fulfillment_messages = result.fulfillment_messages if hasattr(result, 'fulfillment_messages') else []
+            logger.info(f"Fulfillment messages: {fulfillment_messages}")
+
+            parameters = result.parameters.fields if hasattr(result, 'parameters') and hasattr(result.parameters, 'fields') else {}
 
             return JsonResponse({
-                "fulfillment_text": fulfillment_text,
-                "parameters": {key: val.string_value for key, val in parameters.items()}  # Convert parameters to simple dict
+                "queryResult": {
+                    "intent": {"displayName": intent_display_name},
+                    "fulfillmentText": result.fulfillment_text if hasattr(result, 'fulfillment_text') else "No fulfillment text available.",
+                    "fulfillmentMessages": [
+                        {"text": {"text": [msg.text.text[0] for msg in fulfillment_messages if msg.text and msg.text.text]}}
+                    ],
+                    "parameters": {key: val.string_value for key, val in parameters.items()}
+                }
             })
 
         except json.JSONDecodeError as json_err:
             logger.error(f"JSON decoding error: {str(json_err)}")
             return JsonResponse({'error': 'Invalid JSON in request'}, status=400)
         except Exception as e:
-            logger.error(f"Error processing event query: {str(e)}")
+            logger.error(f"Error processing query: {str(e)}")
             return JsonResponse({'error': str(e)}, status=500)
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=400)
 
-
-@csrf_exempt
-@permission_classes([IsAuthenticated])
-def df_text_query(request):
-    """Handle Dialogflow text queries."""
-    if request.method == 'POST':
-        try:
-            body = json.loads(request.body.decode('utf-8'))
-            text = body.get('text')
-            session_id = body.get('session_id', str(uuid.uuid4()))  # Generate a new session if not provided
-            language_code = body.get('language_code', 'en')
-
-            if not text:
-                return JsonResponse({'error': 'Missing text parameter'}, status=400)
-
-            # Call the detect_intent_texts method from DialogflowService
-            result = dialogflow_service.detect_intent_texts(text, session_id=session_id, language_code=language_code)
-
-            # Ensure fulfillment text and parameters exist
-            fulfillment_text = result.fulfillment_text or "Sorry, I didn't catch that."
-            parameters = getattr(result.parameters, 'fields', {})
-
-            logger.info(f"Fulfillment text: {fulfillment_text}")
-            logger.info(f"Parameters: {parameters}")
-
-            return JsonResponse({
-                "fulfillment_text": fulfillment_text,
-                "parameters": {key: val.string_value for key, val in parameters.items()}  # Convert parameters to simple dict
-            })
-
-        except json.JSONDecodeError as json_err:
-            logger.error(f"JSON decoding error: {str(json_err)}")
-            return JsonResponse({'error': 'Invalid JSON in request'}, status=400)
-        except Exception as e:
-            logger.error(f"Error processing text query: {str(e)}")
-            return JsonResponse({'error': str(e)}, status=500)
-    else:
-        return JsonResponse({'error': 'Invalid request method'}, status=400)
 
 @csrf_exempt
 def dialogflow_fulfillment(request):
-    """
-    Handles Dialogflow fulfillment webhook calls.
-    """
+    """Handles Dialogflow fulfillment webhook calls."""
     if request.method == 'POST':
         try:
             body = json.loads(request.body.decode('utf-8'))
             agent = WebhookClient(body)
 
-            # Log the incoming fulfillment request
-            logger.debug(f"Fulfillment request: {body}")
-
-            # Define intent handlers
             def handle_get_name(agent):
                 user_query = agent.query
                 if any(char.isdigit() for char in user_query):
                     agent.add('There can\'t be a number in your name. Please repeat your name for me. Thank you 😊.')
                     agent.set_followup_event('GET_NAME_WITH_NUMBER_FALLBACK')
                 else:
-                    quick_replies = Payload(
-                        agent.UNSPECIFIED,
-                        {'quick_replies': [{'text': 'Yes'}, {'text': 'No'}]},
-                        {'rawPayload': True, 'sendAsMessage': True}
-                    )
-                    agent.add(quick_replies)
+                    agent.add('Thank you for providing your name.')
 
             def handle_get_age(agent):
                 age = agent.parameters.get('age', 0)
                 if age <= 0:
                     agent.add('Please enter a valid age greater than zero.')
-                    agent.set_followup_event('GET_AGE_LOW_FALLBACK')
                 elif age > 200:
                     agent.add('Please enter a realistic age.')
-                    agent.set_followup_event('GET_AGE_HIGH_FALLBACK')
                 else:
                     agent.add(f"Thank you for sharing your age: {age}!")
 
-            # Add more intent handler functions...
-
-            # Map intents to handler functions
             intent_map = {
                 'get-name': handle_get_name,
                 'get-age': handle_get_age,
-                # Add more intents and handlers as needed
             }
 
-            # Process the intent
             agent.handle_request(intent_map)
-
-            # Additional code to handle specific intents or actions
-            if agent.intent == 'Default Welcome Intent':
-                response = {
-                    "fulfillmentText": "Good day. I'm Anna 😉, I'm here to give you a recommendation on what degree programs you could choose in college. To start our session today, I just have a few questions for you to get your basic information. Let's get started!",
-                    "outputContexts": [
-                        {
-                            "name": "projects/your-project-id/agent/sessions/your-session-id/contexts/basic-info",
-                            "lifespanCount": 10
-                        },
-                        {
-                            "name": "projects/your-project-id/agent/sessions/your-session-id/contexts/await-name",
-                            "lifespanCount": 1
-                        }
-                    ]
-                }
-                return JsonResponse(response)
 
             return JsonResponse({'status': 'success'}, status=200)
 

@@ -1,7 +1,19 @@
-node_modules
-anna-eagh-api-key.json
-developmentNotes.txt
-config/dev.js
-.vercel
-mongoDB_playground
-.vscode
+# Ignore Python virtual environment
+client/backend/myenv/
+
+# Ignore build files
+client/backend/build/
+client/backend/dist/
+client/backend/*.egg-info/
+
+# Ignore compiled Python files
+client/backend/**/*.pyc
+client/backend/**/__pycache__/
+
+# Ignore logs
+client/backend/logs/
+client/backend/*.log
+
+# Ignore other environment-specific files
+client/backend/.env
+client/backend/.DS_Store

@@ -1,12 +1,19 @@
-<!-- templates/custom_auth/index.html -->
+{% load static %}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Home</title>
+    <!-- Link to your bundled JS file -->
+    <script src="{% static 'client/build/static/js/main.5363d085.js' %}"></script>
 </head>
 <body>
-    <h1>Backend</h1>
+    <div id="root"></div>
+    <script>
+        // Initialize your React app
+        ReactDOM.render(<LandingPage />, document.getElementById('root'));
+    </script>
 </body>
 </html>

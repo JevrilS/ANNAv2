@@ -61,151 +61,292 @@ const Chatbot = () => {
    const [knownCourses, setKnownCourses] = useState([]);
    const [riasecBasedRecommendedCourses, setRiasecBasedRecommendedCourses] = useState([]);
    const [strandBasedRecommendedCourses, setStrandBasedRecommendedCourses] = useState([]);
-
-   // Set cookies only when the component is mounted
+  
+   
    useEffect(() => {
+      // Ensure session ID is persisted across the conversation
       if (!cookies.get('userId')) {
-         cookies.set('userId', uuid(), { path: '/' });
+         const sessionId = uuid();  // Generate a new session if not present
+         cookies.set('userId', sessionId, { path: '/' });
       }
    }, []);
-
-
-
+   
+   const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+   
    const df_text_query = async (text, parameters) => {
+      const sessionId = cookies.get('userId');  // Retrieve the session ID from cookies
+  
       let userSays = {
-        speaks: 'user',
-        msg: {
-          text: {
-            text: text,
+          speaks: 'user',
+          msg: {
+              text: {
+                  text: text,
+              },
           },
-        },
       };
-    
-      // Remove any preceding quick reply message before appending the user message
+  
+      // Remove quick replies if any exist before appending the user's message
       if (
-        messages[messages.length - 1]?.msg?.payload &&
-        messages[messages.length - 1]?.msg?.payload?.fields?.quick_replies
+          messages[messages.length - 1]?.msg?.payload &&
+          messages[messages.length - 1]?.msg?.payload?.fields?.quick_replies
       ) {
-        removeQuickRepliesAfterType(messages, setMessages);
+          removeQuickRepliesAfterType(messages, setMessages);
       }
-    
+  
       // Add user's message to the chat
       setMessages((prev) => [...prev, userSays]);
       setBotChatLoading(true);
-    
+  
       try {
-        const body = { text, userId: cookies.get('userId'), parameters };
-    
-        // Fetch the response from Django backend, which interacts with Dialogflow
-        const response = await fetch('/api/df_text_query/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-    
-        // If the response is OK, process the data
-        if (response.ok) {
-          const data = await response.json();
-          console.dir(data);
-    
-          // If the welcome intent is detected, clear the chat state
-          if (data.intent && data.intent.displayName === 'Default Welcome Intent') {
-            clearState();
-          } else if (!data.intent || endConversation) {
-            // Handle fallback cases where conversation has ended
-            df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
-            clearState();
-            setEndConversation(true);
-          } else if (data.intent && data.intent.isFallback) {
-            // Handle fallback intent logic
-            const intentName = data.intent.displayName;
-            if (fallbackCount[`${intentName}`] >= 5) {
-              console.log('fallbackCount = ', fallbackCount[`${intentName}`]);
-              df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
-              clearState();
-              setEndConversation(true);
-              return;
-            }
-    
-            // Update fallback count for fallback intents
-            setFallbackCount((prev) =>
-              !fallbackCount[`${intentName}`]
-                ? { ...prev, [intentName]: 1 }
-                : { ...prev, [intentName]: prev[`${intentName}`] + 1 }
-            );
-          }
-    
-          // Update user state if parameters were returned
-          if (data.parameters && data.parameters.fields) {
-            const fields = data.parameters.fields;
-            setUser((prev) => ({
-                ...prev,
-                name: fields.name?.stringValue || prev.name,
-                age: fields.age?.numberValue || prev.age,
-                sex: fields.sex?.stringValue || prev.sex,
-                strand: fields.strand?.stringValue || prev.strand,
-            }));
-        } else {
-            console.warn('No parameters returned in Dialogflow response.');
-        }
-        
-    
-          // Process fulfillment messages from Dialogflow
-          data.fulfillmentMessages.forEach((msg) => {
-            const botSays = {
-              speaks: 'bot',
-              msg: msg,
-            };
-            setMessages((prev) => [...prev, botSays]);
-    
-            // Trigger action based on payload
-            if (msg.payload && msg.payload.fields && msg.payload.fields.riasec) {
-              const riasecValue = msg.payload.fields.riasec.stringValue;
-              handleRiasecScores(riasecValue, msg.payload.fields.riasec_last_question);
-            }
-    
-            if (msg.payload && msg.payload.fields && !msg.payload.fields.riasec && msg.payload.fields.riasec_last_question) {
-              handleRiasecRecommendation(riasec);
-            }
-    
-            if (msg.payload && msg.payload.fields && msg.payload.fields.iswant_strand_recommendation) {
-              df_event_query('STRAND_RECOMMENDATION', { strand: user.strand });
-              setIsRecommendationProvided((prev) => ({ ...prev, strand: 'done' }));
-            }
+          const body = {
+              type: 'text',
+              text: text,
+              session_id: sessionId,  // Ensure we pass the same session ID
+              parameters,
+          };
+  
+          // Fetch response from Django backend
+          const response = await fetch('/api/df_query/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
           });
-        } else {
-          // Handle non-JSON response
-          console.error(`Error: ${response.status} ${response.statusText}`);
-          const errorText = await response.text();
-          console.error('Error response text:', errorText);
-    
+  
+          if (response.ok) {
+              const data = await response.json();
+              console.dir(data);
+  
+              // Check if fulfillmentMessages exist and process all of them
+              if (data.queryResult.fulfillmentMessages) {
+                  const botMessages = data.queryResult.fulfillmentMessages.map((msg) => ({
+                      speaks: 'bot',
+                      msg: msg,
+                  }));
+                  // Add all bot messages to the chat
+                  setMessages((prev) => [...prev, ...botMessages]);
+              }
+  
+              // If the welcome intent is detected
+              if (data.queryResult.intent && data.queryResult.intent.displayName === 'Default Welcome Intent') {
+                  // Clear previous state
+                  clearState();
+  
+                  // Wait for a moment before asking for the name
+                  await wait(1500); // 1.5 seconds delay
+                  df_event_query('await_name');
+                  setBotChatLoading(false);
+                  return;
+              }
+  
+              // Handle fallback intents
+              if (data.queryResult.intent && data.queryResult.intent.isFallback) {
+                  const intentName = data.queryResult.intent.displayName;
+                  if (fallbackCount[`${intentName}`] >= 5) {
+                      console.log('fallbackCount = ', fallbackCount[`${intentName}`]);
+                      df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
+                      clearState();
+                      setEndConversation(true);
+                      return;
+                  }
+  
+                  // Increment fallback count for the current intent
+                  setFallbackCount((prev) => ({
+                      ...prev,
+                      [intentName]: fallbackCount[`${intentName}`]
+                          ? fallbackCount[`${intentName}`] + 1
+                          : 1,
+                  }));
+              }
+  
+              // **Make sure the bot doesn't re-trigger "ask-name-again" unnecessarily**
+              if (data.queryResult.intent && data.queryResult.intent.displayName === 'get-name') {
+                  // Check if the name was correctly provided
+                  const name = data.queryResult.parameters?.fields?.name?.stringValue;
+  
+                  if (!name) {
+                     // If no name is provided, prompt the user to type their name
+                     console.log('No name detected. Asking user for the name.');
+                 
+                     // Ensure input is visible and enabled for the user to type
+                     setIsVisibleInput(true);
+                     setDisabledInput(false);
+                 
+                     // Do not trigger ask-name-again immediately; give the user time to type
+                     return;
+                 } else {
+                     console.log(`Captured Name: ${name}`);
+                     setUser((prev) => ({ ...prev, name })); // Save the captured name
+                 }}
+                 
+  
+              // Process Dialogflow fulfillment messages
+              for (const msg of data.queryResult.fulfillmentMessages) {
+                  const botSays = {
+                      speaks: 'bot',
+                      msg: msg,
+                  };
+                  setMessages((prev) => [...prev, botSays]);
+  
+                  // Handle RIASEC-related payloads
+                  if (msg.payload && msg.payload.fields) {
+                      if (msg.payload.fields.riasec) {
+                          const riasecValue = msg.payload.fields.riasec.stringValue;
+                          handleRiasecScores(riasecValue, msg.payload.fields.riasec_last_question);
+                      }
+  
+                      if (!msg.payload.fields.riasec && msg.payload.fields.riasec_last_question) {
+                          handleRiasecRecommendation(riasec);
+                      }
+  
+                      if (msg.payload.fields.iswant_strand_recommendation) {
+                          df_event_query('STRAND_RECOMMENDATION', { strand: user.strand });
+                          setIsRecommendationProvided((prev) => ({ ...prev, strand: 'done' }));
+                      }
+                  }
+              }
+          } else {
+              // Handle non-JSON response
+              console.error(`Error: ${response.status} ${response.statusText}`);
+              const errorText = await response.text();
+              console.error('Error response text:', errorText);
+  
+              // Append error message to the chat
+              const botSays = {
+                  speaks: 'bot',
+                  msg: {
+                      text: {
+                          text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
+                      },
+                  },
+              };
+              setMessages((prev) => [...prev, botSays]);
+          }
+      } catch (err) {
+          console.log(err.message);
+  
+          // Display error message in the chat
+          setBotChatLoading(false);
           const botSays = {
-            speaks: 'bot',
-            msg: {
-              text: {
-                text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
+              speaks: 'bot',
+              msg: {
+                  text: {
+                      text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
+                  },
               },
-            },
           };
           setMessages((prev) => [...prev, botSays]);
-        }
-      } catch (err) {
-        console.log(err.message);
-    
-        // Display an error message in the chat
-        setBotChatLoading(false);
-        const botSays = {
-          speaks: 'bot',
-          msg: {
-            text: {
-              text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
-            },
-          },
-        };
-        setMessages((prev) => [...prev, botSays]);
       }
-    };
-    
+  };
+  
+   const handleFulfillmentMessages = (messagesArray) => {
+      if (Array.isArray(messagesArray)) {
+          messagesArray.forEach((msg) => {
+              if (msg.text && msg.text.text) {
+                  const botSays = {
+                      speaks: 'bot',
+                      msg: {
+                          text: {
+                              text: msg.text.text[0], // Handle first message
+                          },
+                      },
+                  };
+                  setMessages((prev) => [...prev, botSays]);
+              }
+          });
+      }
+   };
+   
+   const df_event_query = async (event, parameters = {}) => {
+      try {
+          setBotChatLoading(true);
+   
+          const body = {
+              type: 'event',
+              event,
+              session_id: cookies.get('userId'), // Consistent session ID for context
+              parameters,
+              language_code: 'en',
+          };
+   
+          const response = await fetch('/api/df_query/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+          });
+   
+          const data = await response.json();
+          setBotChatLoading(false);
+   
+          console.log('Full Query Result:', data.queryResult);
+   
+          let intent = data.queryResult?.intent?.displayName || 'undefined';
+          console.log('Detected Intent:', intent);
+   
+          if (intent === 'undefined' || intent === '') {
+              // If the intent is undefined or empty, handle it like a fallback.
+              console.warn('Undefined or empty intent detected.');
+              df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
+              return;
+          }
+   
+          // Add logging for debugging
+          const handleIntentMessages = () => {
+              if (data.queryResult?.fulfillmentMessages && Array.isArray(data.queryResult.fulfillmentMessages)) {
+                  handleFulfillmentMessages(data.queryResult.fulfillmentMessages);
+              } else {
+                  console.log(`No fulfillment messages found for intent: ${intent}`);
+              }
+          };
+   
+          switch (intent) {
+              case 'Default Welcome Intent':
+                  console.log('Handling Default Welcome Intent');
+                  handleFulfillmentMessages(data.queryResult.fulfillmentMessages);
+                  df_event_query('await_name');
+                  break;
+   
+              case 'get-name':
+                  console.log('Handling get-name Intent');
+                  const name = data.queryResult.parameters?.fields?.name?.stringValue;
+                  if (name) {
+                      console.log(`Captured Name: ${name}`);
+                      setUser((prev) => ({ ...prev, name }));
+                      handleFulfillmentMessages(data.queryResult.fulfillmentMessages);
+                  } else {
+                      console.log('Name not detected. Re-asking name.');
+                      df_event_query('ask-name-again');
+                  }
+                  break;
+   
+              case 'fallback-exceed-trigger-limit':
+                  console.log('Handling fallback-exceed-trigger-limit');
+                  handleIntentMessages();
+                  clearState();
+                  setEndConversation(true);
+                  break;
+   
+              default:
+                  console.warn(`Unhandled intent detected: ${intent}`);
+                  df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
+                  break;
+          }
+   
+      } catch (err) {
+          console.error('Error in df_event_query:', err.message);
+          setBotChatLoading(false);
+          const botSays = {
+              speaks: 'bot',
+              msg: {
+                  text: {
+                      text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
+                  },
+              },
+          };
+          setMessages((prev) => [...prev, botSays]);
+      }
+   };
+   
+
     const handleRiasecScores = (riasecValue, riasecLastQuestion) => {
       // Update RIASEC state based on the value returned from Dialogflow
       switch (riasecValue) {
@@ -236,103 +377,7 @@ const Chatbot = () => {
       }
     };
     
-    const df_event_query = async (event, parameters = {}) => {
-      try {
-          setBotChatLoading(true);
-  
-          const body = {
-              event,
-              userId: cookies.get('userId'),
-              parameters,
-              languageCode: 'en',
-          };
-  
-          const response = await fetch('/api/df_event_query/', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body),
-          });
-  
-          const data = await response.json();
-          setBotChatLoading(false);
-  
-          console.log('Full Dialogflow Response:', JSON.stringify(data, null, 2));
-  
-          // Handle response based on the structure received
-          let intent = 'undefined';
-          if (data.queryResult) {
-              intent = data.queryResult.intent ? data.queryResult.intent.displayName : 'undefined';
-          } else if (data.fulfillment_text) {
-              // Handle case where only fulfillment_text is present
-              intent = 'fulfillment_text_only';
-          } else {
-              console.log('queryResult not found in the response:', data);
-          }
-  
-          console.log('Detected Intent:', intent);
-  
-          switch (intent) {
-              case 'Default Welcome Intent':
-                  clearState();
-                  df_event_query('await_name');
-                  break;
-              case 'get-name':
-                  // Handle name collection
-                  break;
-              case 'get-age':
-                  // Handle age collection
-                  break;
-              case 'fulfillment_text_only':
-                  // Handle case where only fulfillment_text is present
-                  const botSays = {
-                      speaks: 'bot',
-                      msg: {
-                          text: {
-                              text: data.fulfillment_text,
-                          },
-                      },
-                  };
-                  setMessages((prev) => [...prev, botSays]);
-                  break;
-              default:
-                  console.log('Unhandled intent:', intent);
-                  df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
-                  clearState();
-                  setEndConversation(true);
-                  setDisabledInput(false);
-                  setIsVisibleInput(true);
-                  break;
-          }
-  
-          if (data.queryResult && Array.isArray(data.queryResult.fulfillmentMessages)) {
-              data.queryResult.fulfillmentMessages.forEach((msg) => {
-                  if (msg.text && msg.text.text) {
-                      const botSays = {
-                          speaks: 'bot',
-                          msg: {
-                              text: {
-                                  text: msg.text.text[0],
-                              },
-                          },
-                      };
-                      setMessages((prev) => [...prev, botSays]);
-                  }
-              });
-          }
-      } catch (err) {
-          console.error('Error in df_event_query:', err.message);
-          setBotChatLoading(false);
-          const botSays = {
-              speaks: 'bot',
-              msg: {
-                  text: {
-                      text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
-                  },
-              },
-          };
-          setMessages((prev) => [...prev, botSays]);
-      }
-  };
+   
   
    const triggerCourseOptionYes = () => {
       // this will keep the context exceeds the time limit of 20mins, because users might take time watching the videos
@@ -454,86 +499,68 @@ const Chatbot = () => {
    };
 
    const renderMessage = (message, i) => {
-      if (message.msg && message.msg.text && message.msg.text.text) {
-         return (
-            <Message key={i} keyword={message.keyword} terms={message.terms && message.terms} speaks={message.speaks} text={message.msg.text.text} />
-         );
-      } else if (message.msg && message.msg.payload.fields.cards) {
-         return (
-            <Fragment key={i}>
-               <div className='message-cards'>
-                  <img className='chatbot-avatar message-avatar' src={chatbotAvatar} alt='chathead' />
-                  <div className='cards'>
-                     <div style={{ width: message.msg.payload.fields.cards.listValue.values.length * 270 }}>
-                        {renderCards(message.msg.payload.fields.cards.listValue.values)}
-                     </div>
+      console.log('Rendering message:', message);
+  
+      if (message.msg?.text?.text) {
+          // Handle text messages
+          return (
+              <Message
+                  key={i}
+                  keyword={message.keyword}
+                  terms={message.terms && message.terms}
+                  speaks={message.speaks}
+                  text={message.msg.text.text}
+              />
+          );
+      } else if (message.msg?.payload?.fields?.cards) {
+          // Handle card messages
+          return (
+              <Fragment key={i}>
+                  <div className='message-cards'>
+                      <img className='chatbot-avatar message-avatar' src={chatbotAvatar} alt='chathead' />
+                      <div className='cards'>
+                          <div style={{ width: message.msg.payload.fields.cards.listValue.values.length * 270 }}>
+                              {renderCards(message.msg.payload.fields.cards.listValue.values)}
+                          </div>
+                      </div>
                   </div>
-               </div>
-               {message.msg.payload.fields.quick_replies && (
-                  <QuickReplies
-                     triggerCourseOptionYes={triggerCourseOptionYes}
-                     clearCourseOptionsYes={clearCourseOptionsYes}
-                     isCardQuickReplies={message.msg.payload.fields.cards ? true : false}
-                     messages={messages}
-                     setMessages={setMessages}
-                     replyClick={handleQuickReplyPayload}
-                     payload={message.msg.payload.fields.quick_replies.listValue.values}
-                  />
-               )}
-            </Fragment>
-         );
-      } else if (
-         message.msg &&
-         message.msg.payload &&
-         message.msg.payload.fields &&
-         message.msg.payload.fields.quick_replies &&
-         message.msg.payload.fields.basis &&
-         message.msg.payload.fields.recommended_courses_info
-      ) {
-         return (
-            <RecommendedCoursesQuickReply
-               key={i}
-               payload={message.msg.payload.fields.quick_replies.listValue.values}
-               basis={message.msg.payload.fields.basis.stringValue}
-            />
-         );
-      } else if (message.msg && message.msg.payload && message.msg.payload.fields && message.msg.payload.fields.quick_replies) {
-         return (
-            <QuickReplies
-               key={i}
-               messages={messages}
-               setMessages={setMessages}
-               replyClick={handleQuickReplyPayload}
-               isRiasecQuickReplies={message.msg.payload.fields.isriasec_quick_replies && message.msg.payload.fields.isriasec_quick_replies.boolValue}
-               payload={message.msg.payload.fields.quick_replies.listValue.values}
-            />
-         );
-      } else if (
-         message.msg &&
-         message.msg.payload &&
-         message.msg.payload.fields &&
-         message.msg.payload.fields.basis &&
-         (message.msg.payload.fields.riasec_recommended_courses || message.msg.payload.fields.strand_recommended_courses)
-      ) {
-         return (
-            <RecommendedCoursesMessage
-               key={i}
-               speaks={message.speaks}
-               isRecommendationProvided
-               handleMessagesScrollToBottom={handleMessagesScrollToBottom}
-               dialogflowEventQuery={df_event_query}
-               setTextMessage={setTextMessage}
-               strand={user.strand}
-               basis={message.msg.payload.fields.basis.stringValue}
-               recommendedCourses={
-                  message.msg.payload.fields.basis.stringValue === 'riasec'
-                     ? message.msg.payload.fields.riasec_recommended_courses.listValue.values
-                     : message.msg.payload.fields.strand_recommended_courses.listValue.values
-               }
-            />
-         );
+                  {message.msg.payload.fields.quick_replies && (
+                      <QuickReplies
+                          triggerCourseOptionYes={triggerCourseOptionYes}
+                          clearCourseOptionsYes={clearCourseOptionsYes}
+                          isCardQuickReplies={!!message.msg.payload.fields.cards}
+                          messages={messages}
+                          setMessages={setMessages}
+                          replyClick={handleQuickReplyPayload}
+                          payload={message.msg.payload.fields.quick_replies.listValue.values}
+                      />
+                  )}
+              </Fragment>
+          );
+      } else if (message.msg?.payload?.fields?.quick_replies) {
+          // **Handle quick replies (newly added code)** 
+          return (
+              <QuickReplies
+                  key={i}
+                  messages={messages}
+                  setMessages={setMessages}
+                  replyClick={handleQuickReplyPayload}
+                  isRiasecQuickReplies={message.msg.payload.fields.isriasec_quick_replies?.boolValue}
+                  payload={message.msg.payload.fields.quick_replies.listValue.values}
+              />
+          );
+      } else {
+          // Handle unknown message format
+          return (
+              <div key={i} className='message bot'>
+                  <p>Message format not recognized</p>
+              </div>
+          );
       }
-   };
+  };
+  
+  
+  
 
    const renderMessages = messages => {
       if (messages && messages.length > 0) {
@@ -543,11 +570,13 @@ const Chatbot = () => {
       } else return null;
    };
 
-   const send = e => {
+   // Ensure user response is captured and sent to Dialogflow
+   const send = (e) => {
       e.preventDefault();
-      df_text_query(textMessage);
-      setTextMessage('');
+      df_text_query(textMessage); // Trigger Dialogflow query with user input
+      setTextMessage(''); // Clear input field
    };
+ 
 
    const handleMessagesScrollToBottom = () => {
       // element.scrollTop = element.scrollHeight - element is the container of message
@@ -679,19 +708,20 @@ const Chatbot = () => {
 
     {/* Text Input */}
     <form className='chatbot-text-input' onSubmit={send}>
-      <input
-        ref={inputRef}
-        className={`${isVisibleInput ? 'visible' : 'invisible'}`}
-        disabled={!isAgreeTermsConditions || disabledInput}
-        value={textMessage}
-        type='text'
-        placeholder='Your answer here...'
-        onChange={(e) => setTextMessage(e.target.value)}
+         <input
+         ref={inputRef}
+         className={`${isVisibleInput ? 'visible' : 'invisible'}`}
+         disabled={disabledInput}  // Ensure it's only disabled based on actual conditions
+         value={textMessage}
+         type='text'
+         placeholder='Your answer here...'
+         onChange={(e) => setTextMessage(e.target.value)}
       />
+
       <button className='btn p-0 chatbot-send' disabled={!textMessage} type='submit'>
-        <MdSend className={`chatbot-send text-primary ${isVisibleInput ? 'visible' : 'invisible'}`} />
+         <MdSend className={`chatbot-send text-primary ${isVisibleInput ? 'visible' : 'invisible'}`} />
       </button>
-    </form>
+   </form>
   </div>
 )}
 
