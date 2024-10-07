@@ -1,6 +1,5 @@
-from google.protobuf.struct_pb2 import Struct
-from .JsonExtension import classbinder
 from django.conf import settings
+from django.db import connection
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -10,10 +9,10 @@ from rest_framework.decorators import api_view, permission_classes
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Domain, UserProfile, User
+from django.db import models  # Ensure models is imported for the objects manager
 from django.http import JsonResponse
 from django.core.serializers.json import DjangoJSONEncoder
 from django.contrib.auth import authenticate, login
-import logging
 import json
 from .serializers import UserSerializer, ChangePasswordSerializer
 from rest_framework.permissions import IsAuthenticated
@@ -27,138 +26,83 @@ from .decorators import redirect_if_not_authenticated
 import logging
 from django_tenants.utils import schema_context
 from rest_framework.permissions import AllowAny  # Import AllowAny permission class
-from google.oauth2 import service_account
 from rest_framework_simplejwt.tokens import AccessToken
 import os
-from google.cloud import dialogflow_v2 as dialogflow
-from .dialogflow_service import DialogflowService
-from google.auth import credentials
-import uuid
-from google.protobuf.json_format import MessageToDict
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-
-# Set the path to the service account key file
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.GOOGLE_APPLICATION_CREDENTIALS
-
-# Initialize logging
-logger = logging.getLogger(__name__)
-
-# Load credentials from the service account key file
-with open(os.environ["GOOGLE_APPLICATION_CREDENTIALS"]) as f:
-    credentials_info = json.load(f)
-
-# Initialize Dialogflow Service
-dialogflow_service = DialogflowService(
-    project_id="annadialogflow",
-    session_id="your-session-id",
-    language_code="en",
-    credentials_info=credentials_info
-)
 @csrf_exempt
-def df_query(request):
-    """Handle Dialogflow queries (event or text)."""
-    if request.method == 'POST':
-        try:
-            body = json.loads(request.body.decode('utf-8'))
-            logger.info(f"Received request body: {body}")
-            
-            query_type = body.get('type')
-            session_id = body.get('session_id')  # Expect session_id to be provided from the frontend
-            if not session_id:
-                logger.error("Session ID missing in request")
-                return JsonResponse({'error': 'Session ID is missing'}, status=400)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def save_conversation(request):
+    try:
+        user_profile = request.user.profile
+        data = json.loads(request.body)
 
-            language_code = body.get('language_code', 'en')
+        # Update the user's RIASEC scores and recommendations
+        user_profile.realistic_score = data.get('realistic', user_profile.realistic_score)
+        user_profile.investigative_score = data.get('investigative', user_profile.investigative_score)
+        user_profile.artistic_score = data.get('artistic', user_profile.artistic_score)
+        user_profile.social_score = data.get('social', user_profile.social_score)
+        user_profile.enterprising_score = data.get('enterprising', user_profile.enterprising_score)
+        user_profile.conventional_score = data.get('conventional', user_profile.conventional_score)
 
-            if query_type == 'event':
-                event = body.get('event')
-                if not event:
-                    return JsonResponse({'error': 'Missing event parameter'}, status=400)
+        # Ensure the recommended courses are correctly passed and stored
+        recommended_courses = data.get('riasec_course_recommendation', [])
+        user_profile.recommended_courses = recommended_courses
 
-                result = dialogflow_service.detect_intent_event(event, {}, session_id=session_id, language_code=language_code)
+        user_profile.save()
 
-            elif query_type == 'text':
-                text = body.get('text')
-                if not text:
-                    logger.error("Text missing in request")
-                    return JsonResponse({'error': 'Missing text parameter'}, status=400)
+        return JsonResponse({'message': 'Conversation saved successfully!'}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-                result = dialogflow_service.detect_intent_texts(text, session_id=session_id, language_code=language_code)
-
-            else:
-                return JsonResponse({'error': 'Invalid query type'}, status=400)
-
-            intent_display_name = result.intent.display_name if result.intent else "Unknown Intent"
-            logger.info(f"Detected intent: {intent_display_name}")
-
-            fulfillment_messages = result.fulfillment_messages if hasattr(result, 'fulfillment_messages') else []
-            logger.info(f"Fulfillment messages: {fulfillment_messages}")
-
-            parameters = result.parameters.fields if hasattr(result, 'parameters') and hasattr(result.parameters, 'fields') else {}
-
-            return JsonResponse({
-                "queryResult": {
-                    "intent": {"displayName": intent_display_name},
-                    "fulfillmentText": result.fulfillment_text if hasattr(result, 'fulfillment_text') else "No fulfillment text available.",
-                    "fulfillmentMessages": [
-                        {"text": {"text": [msg.text.text[0] for msg in fulfillment_messages if msg.text and msg.text.text]}}
-                    ],
-                    "parameters": {key: val.string_value for key, val in parameters.items()}
-                }
-            })
-
-        except json.JSONDecodeError as json_err:
-            logger.error(f"JSON decoding error: {str(json_err)}")
-            return JsonResponse({'error': 'Invalid JSON in request'}, status=400)
-        except Exception as e:
-            logger.error(f"Error processing query: {str(e)}")
-            return JsonResponse({'error': str(e)}, status=500)
-    else:
-        return JsonResponse({'error': 'Invalid request method'}, status=400)
-
-
-@csrf_exempt
-def dialogflow_fulfillment(request):
-    """Handles Dialogflow fulfillment webhook calls."""
-    if request.method == 'POST':
-        try:
-            body = json.loads(request.body.decode('utf-8'))
-            agent = WebhookClient(body)
-
-            def handle_get_name(agent):
-                user_query = agent.query
-                if any(char.isdigit() for char in user_query):
-                    agent.add('There can\'t be a number in your name. Please repeat your name for me. Thank you 😊.')
-                    agent.set_followup_event('GET_NAME_WITH_NUMBER_FALLBACK')
-                else:
-                    agent.add('Thank you for providing your name.')
-
-            def handle_get_age(agent):
-                age = agent.parameters.get('age', 0)
-                if age <= 0:
-                    agent.add('Please enter a valid age greater than zero.')
-                elif age > 200:
-                    agent.add('Please enter a realistic age.')
-                else:
-                    agent.add(f"Thank you for sharing your age: {age}!")
-
-            intent_map = {
-                'get-name': handle_get_name,
-                'get-age': handle_get_age,
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def check_login_status(request):
+    user = request.user
+    if user.is_authenticated:
+        return JsonResponse({
+            'is_logged_in': True,
+            'user_data': {
+                'name': user.full_name,
+                'age': user.profile.age,
+                'sex': user.sex,
+                'strand': user.strand,
+                # Add any other required fields
             }
+        }, status=status.HTTP_200_OK)
+    return JsonResponse({'is_logged_in': False}, status=status.HTTP_200_OK)
+def recommend_courses(user_profile):
+    """Generate course recommendations based on RIASEC scores."""
+    riasec_scores = {
+        'realistic': user_profile.realistic_score,
+        'investigative': user_profile.investigative_score,
+        'artistic': user_profile.artistic_score,
+        'social': user_profile.social_score,
+        'enterprising': user_profile.enterprising_score,
+        'conventional': user_profile.conventional_score,
+    }
 
-            agent.handle_request(intent_map)
+    # Sort RIASEC types based on score
+    sorted_riasec = sorted(riasec_scores.items(), key=lambda x: x[1], reverse=True)
 
-            return JsonResponse({'status': 'success'}, status=200)
+    # Recommend courses based on top RIASEC types
+    top_riasec = sorted_riasec[:3]  # Take top 3 RIASEC types
+    recommendations = {
+        'realistic': ['Engineering', 'Architecture'],
+        'investigative': ['Biology', 'Research'],
+        'artistic': ['Fine Arts', 'Graphic Design'],
+        'social': ['Psychology', 'Teaching'],
+        'enterprising': ['Business Administration', 'Entrepreneurship'],
+        'conventional': ['Accounting', 'Finance'],
+    }
 
-        except Exception as e:
-            logger.error(f"Error processing fulfillment request: {str(e)}")
-            return JsonResponse({'error': str(e)}, status=500)
+    recommended_courses = []
+    for riasec_type, _ in top_riasec:
+        recommended_courses.extend(recommendations.get(riasec_type, []))
 
-    return JsonResponse({'error': 'Method not allowed'}, status=405)
-
+    return recommended_courses
 
 class UserDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -195,6 +139,7 @@ class SchoolListView(APIView):
 logger = logging.getLogger(__name__)
 
 
+
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -211,9 +156,10 @@ def register(request):
         sex = data.get('sex')
         strand = data.get('strand')
         grade_level = data.get('grade_level')
+        age = data.get('age')  # Make sure the age field is included
 
         # Validate input data
-        if not all([id_no, full_name, email, password, confirm_password, school_id, mobile_no, sex, strand, grade_level]):
+        if not all([id_no, full_name, email, password, confirm_password, school_id, mobile_no, sex, strand, grade_level, age]):
             return JsonResponse({'message': 'All fields are required'}, status=status.HTTP_400_BAD_REQUEST)
 
         if password != confirm_password:
@@ -229,12 +175,10 @@ def register(request):
         # Fetch the school object directly
         try:
             school = School.objects.get(id=school_id)
-            logger.debug(f"Found school: {school}")
         except School.DoesNotExist:
-            logger.error(f'School with id {school_id} not found')
             return JsonResponse({'message': 'School not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Create a new user within the current schema
+        # Create a new user
         user = User.objects.create_user(
             id_no=id_no,
             full_name=full_name,
@@ -246,14 +190,23 @@ def register(request):
             strand=strand,
             grade_level=grade_level,
         )
-        user.save()
-        logger.info(f"User {user.email} created successfully")
+
+        # Check if the profile exists and update the fields or create a new profile
+        user_profile, created = UserProfile.objects.get_or_create(
+            user=user
+        )
+        
+        # Update profile fields regardless of whether it was created or retrieved
+        user_profile.age = age
+        user_profile.strand = strand
+        user_profile.save()
 
         return JsonResponse({'message': 'User registered successfully'}, status=status.HTTP_201_CREATED)
 
     except Exception as e:
-        logger.error(f'Error during registration: {str(e)}')
         return JsonResponse({'message': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -314,7 +267,7 @@ def login_view(request):
 
         # Assuming you use the request host to determine the schema
         with connection.cursor() as cursor:
-            cursor.execute("SELECT schema_name FROM custom_auth_client WHERE domain = %s", [request.get_host()])
+            cursor.execute("SELECT schema_name FROM custom_auth_domain WHERE domain = %s", [request.get_host()])
             schema_name = cursor.fetchone()
 
         if not schema_name:
@@ -357,7 +310,6 @@ def check_schema_view(request):
 
 logger = logging.getLogger(__name__)
 
-
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def guidance_login_view(request):
@@ -371,17 +323,17 @@ def guidance_login_view(request):
 
         logger.info(f'Attempting login with email: {email}')
 
-        # Determine the schema based on the request's host
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT schema_name FROM custom_auth_client WHERE domain = %s", [request.get_host()])
-            schema_name = cursor.fetchone()
-
-        if not schema_name:
-            logger.error('No tenant schema found for the request domain')
+        # Use Django ORM to get the schema_name based on the request domain
+        domain_name = request.get_host()
+        try:
+            domain = Domain.objects.get(domain=domain_name)
+            schema_name = domain.tenant.schema_name
+        except Domain.DoesNotExist:
+            logger.error(f'No tenant schema found for the request domain: {domain_name}')
             return Response({'message': 'Tenant not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Use schema context to authenticate the user within the correct schema
-        with schema_context(schema_name[0]):
+        # Switch to the tenant's schema and authenticate the user
+        with schema_context(schema_name):
             user = authenticate(request, username=email, password=password)
 
             if user is not None and user.is_active:
@@ -395,4 +347,3 @@ def guidance_login_view(request):
     except Exception as e:
         logger.error(f'Error during login: {str(e)}')
         return Response({'message': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    

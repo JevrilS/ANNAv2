@@ -1,6 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.forms import JSONField
 from django_tenants.models import TenantMixin, DomainMixin
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.contrib.auth.models import User
 
 class Client(TenantMixin):
     """
@@ -47,6 +51,15 @@ class MyUserManager(BaseUserManager):
         extra_fields.setdefault('is_superuser', True)
         return self.create_user(email, password, **extra_fields)
 
+class Conversation(models.Model):
+    name = models.CharField(max_length=255)
+    age = models.IntegerField()
+    sex = models.CharField(max_length=20)
+    strand = models.CharField(max_length=255)
+    riasec_code = models.JSONField()  # Store RIASEC code as JSON
+    riasec_course_recommendation = models.JSONField()  # Store course recommendations as JSON
+    strand_course_recommendation = models.JSONField()  # Store strand course recommendations as JSON
+    created_at = models.DateTimeField(auto_now_add=True)
 
 # Ensure this model is recognized in the 'shared' apps or 'public' schema.
 class School(models.Model):
@@ -113,15 +126,29 @@ class Feedback(models.Model):
 
 
 class UserProfile(models.Model):
-    """
-    Model to store additional user profile information.
-    """
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    age = models.IntegerField(null=True, blank=True)
+    strand = models.CharField(max_length=255, null=True, blank=True)
+    realistic_score = models.IntegerField(default=0)
+    investigative_score = models.IntegerField(default=0)
+    artistic_score = models.IntegerField(default=0)
+    social_score = models.IntegerField(default=0)
+    enterprising_score = models.IntegerField(default=0)
+    conventional_score = models.IntegerField(default=0)
+    recommended_courses = models.JSONField(null=True, blank=True)  # Use django.db.models.JSONField
 
     def __str__(self):
-        return self.user.email
+        return f'{self.user.full_name} Profile'
 
 
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    if created:
+        UserProfile.objects.create(user=instance)
+
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    instance.profile.save()
 # Public schema models
 class PublicUser(models.Model):
     """
