@@ -11,6 +11,8 @@ from .views import (
     SchoolListView,
     check_schema_view,
     guidance_login_view,
+    get_conversations,        # Import the get_conversations view
+    get_distinct_strands,      # Import the get_distinct_strands view
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from custom_auth import views
@@ -29,5 +31,6 @@ urlpatterns = [
     path('check-schema/', check_schema_view, name='check_schema'),
     path('auth/guidance-login/', guidance_login_view, name='guidance-login'),
     path('save-conversation/', views.save_conversation, name='save_conversation'),
-
+    path('get-conversations/', get_conversations, name='get-conversations'),  # New URL for fetching conversations
+    path('courses-distinct-strand/', get_distinct_strands, name='courses-distinct-strand'),  # New URL for fetching distinct strands
 ]

@@ -72,14 +72,11 @@ function App() {
             <Router>
                <Routes>
                   <Route path='/' element={<LandingPage />} /> {/* Set LandingPage as the default */}
-                  <Route path='/admin/*' element={!isAuthenticated ? <Navigate replace to='/admin/login' /> : <Admin />}>
-                     {/* /admin will trigger if path starts with /admin - by using asterisk (*) */}
-                     <Route path='dashboard' element={<Dashboard />} />
+                  <Route path='/admin/' element={!isAuthenticated ? <Navigate replace to='/admin/login' /> : <Admin />}>
+                     <Route path='dashboard' element={<Dashboard />} /> {/* This renders inside the Admin layout */}
                      <Route path='feedback' element={<Feedback />} />
                      <Route path='conversation' element={<Conversation />} />
                      <Route path='conversation/:conversationId' element={<ConversationDetails />} />
-                     {/* <Route path='video-material' element={<VideoMaterial />} /> */}
-                     {/* <Route path='course' element={<Course />} /> */}
                   </Route>
                   <Route path='/admin/login' element={!isAuthenticated ? <AdminLogin /> : <Navigate replace to='/admin/dashboard' />} />
                   <Route path='/account' element={<AccountDetails />} />

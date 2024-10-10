@@ -15,12 +15,13 @@
    "author": "",
    "license": "ISC",
    "dependencies": {
+      "@google-cloud/dialogflow": "^6.8.0",
       "actions-on-google": "^2.14.0",
-      "bcrypt": "^5.0.1",
+      "bcrypt": "^5.1.1",
       "cors": "^2.8.5",
       "dialogflow": "^4.0.3",
       "dialogflow-fulfillment": "^0.6.1",
-      "express": "^3.21.2",
+      "express": "^4.21.0",
       "font-awesome": "^4.7.0",
       "jsonwebtoken": "^9.0.2",
       "mongoose": "^6.5.0",
@@ -31,7 +32,7 @@
       "concurrently": "^7.3.0",
       "webpack": "^5.93.0",
       "webpack-cli": "^5.1.4",
-      "webpack-dev-server": "^1.2.9"
+      "webpack-dev-server": "^5.1.0"
    },
    "engines": {
       "node": "16.x",

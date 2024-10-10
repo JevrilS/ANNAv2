@@ -58,327 +58,246 @@ const Chatbot = () => {
    const [fallbackCount, setFallbackCount] = useState({});
    const [endConversation, setEndConversation] = useState(false); // state for purposely ending the conversation
 
+   // recommeded courses
    const [knownCourses, setKnownCourses] = useState([]);
    const [riasecBasedRecommendedCourses, setRiasecBasedRecommendedCourses] = useState([]);
    const [strandBasedRecommendedCourses, setStrandBasedRecommendedCourses] = useState([]);
-  
-   
-   useEffect(() => {
-      // Ensure session ID is persisted across the conversation
-      if (!cookies.get('userId')) {
-         const sessionId = uuid();  // Generate a new session if not present
-         cookies.set('userId', sessionId, { path: '/' });
-      }
-   }, []);
-   
-   const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-   
+
+   // if cookies does not exist set cookies else do nothing, cookies path = '/ - accessible to all pages
+   if (!cookies.get('userId')) cookies.set('userId', uuid(), { path: '/' });
+
    const df_text_query = async (text, parameters) => {
-      const sessionId = cookies.get('userId');  // Retrieve the session ID from cookies
-  
       let userSays = {
-          speaks: 'user',
-          msg: {
-              text: {
-                  text: text,
-              },
-          },
+         speaks: 'user',
+         msg: {
+            text: {
+               text: text,
+            },
+         },
       };
-  
-      // Remove quick replies if any exist before appending the user's message
+
+      // remove any preceding quick reply message before appending the user message
+      // check if preceing message is an quick if it is remove the message
       if (
-          messages[messages.length - 1]?.msg?.payload &&
-          messages[messages.length - 1]?.msg?.payload?.fields?.quick_replies
+         messages[messages.length - 1].msg.payload &&
+         messages[messages.length - 1].msg.payload.fields &&
+         messages[messages.length - 1].msg.payload.fields.quick_replies
       ) {
-          removeQuickRepliesAfterType(messages, setMessages);
+         removeQuickRepliesAfterType(messages, setMessages);
       }
-  
-      // Add user's message to the chat
-      setMessages((prev) => [...prev, userSays]);
+
+      setMessages(prev => [...prev, userSays]);
       setBotChatLoading(true);
-  
+
       try {
-          const body = {
-              type: 'text',
-              text: text,
-              session_id: sessionId,  // Ensure we pass the same session ID
-              parameters,
-          };
-  
-          // Fetch response from Django backend
-          const response = await fetch('/api/df_query/', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body),
-          });
-  
-          if (response.ok) {
-              const data = await response.json();
-              console.dir(data);
-  
-              // Check if fulfillmentMessages exist and process all of them
-              if (data.queryResult.fulfillmentMessages) {
-                  const botMessages = data.queryResult.fulfillmentMessages.map((msg) => ({
-                      speaks: 'bot',
-                      msg: msg,
-                  }));
-                  // Add all bot messages to the chat
-                  setMessages((prev) => [...prev, ...botMessages]);
-              }
-  
-              // If the welcome intent is detected
-              if (data.queryResult.intent && data.queryResult.intent.displayName === 'Default Welcome Intent') {
-                  // Clear previous state
-                  clearState();
-  
-                  // Wait for a moment before asking for the name
-                  await wait(1500); // 1.5 seconds delay
-                  df_event_query('await_name');
-                  setBotChatLoading(false);
-                  return;
-              }
-  
-              // Handle fallback intents
-              if (data.queryResult.intent && data.queryResult.intent.isFallback) {
-                  const intentName = data.queryResult.intent.displayName;
-                  if (fallbackCount[`${intentName}`] >= 5) {
-                      console.log('fallbackCount = ', fallbackCount[`${intentName}`]);
-                      df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
-                      clearState();
-                      setEndConversation(true);
-                      return;
-                  }
-  
-                  // Increment fallback count for the current intent
-                  setFallbackCount((prev) => ({
-                      ...prev,
-                      [intentName]: fallbackCount[`${intentName}`]
-                          ? fallbackCount[`${intentName}`] + 1
-                          : 1,
-                  }));
-              }
-  
-              // **Make sure the bot doesn't re-trigger "ask-name-again" unnecessarily**
-              if (data.queryResult.intent && data.queryResult.intent.displayName === 'get-name') {
-                  // Check if the name was correctly provided
-                  const name = data.queryResult.parameters?.fields?.name?.stringValue;
-  
-                  if (!name) {
-                     // If no name is provided, prompt the user to type their name
-                     console.log('No name detected. Asking user for the name.');
-                 
-                     // Ensure input is visible and enabled for the user to type
-                     setIsVisibleInput(true);
-                     setDisabledInput(false);
-                 
-                     // Do not trigger ask-name-again immediately; give the user time to type
-                     return;
-                 } else {
-                     console.log(`Captured Name: ${name}`);
-                     setUser((prev) => ({ ...prev, name })); // Save the captured name
-                 }}
-                 
-  
-              // Process Dialogflow fulfillment messages
-              for (const msg of data.queryResult.fulfillmentMessages) {
-                  const botSays = {
-                      speaks: 'bot',
-                      msg: msg,
-                  };
-                  setMessages((prev) => [...prev, botSays]);
-  
-                  // Handle RIASEC-related payloads
-                  if (msg.payload && msg.payload.fields) {
-                      if (msg.payload.fields.riasec) {
-                          const riasecValue = msg.payload.fields.riasec.stringValue;
-                          handleRiasecScores(riasecValue, msg.payload.fields.riasec_last_question);
-                      }
-  
-                      if (!msg.payload.fields.riasec && msg.payload.fields.riasec_last_question) {
-                          handleRiasecRecommendation(riasec);
-                      }
-  
-                      if (msg.payload.fields.iswant_strand_recommendation) {
-                          df_event_query('STRAND_RECOMMENDATION', { strand: user.strand });
-                          setIsRecommendationProvided((prev) => ({ ...prev, strand: 'done' }));
-                      }
-                  }
-              }
-          } else {
-              // Handle non-JSON response
-              console.error(`Error: ${response.status} ${response.statusText}`);
-              const errorText = await response.text();
-              console.error('Error response text:', errorText);
-  
-              // Append error message to the chat
-              const botSays = {
-                  speaks: 'bot',
-                  msg: {
-                      text: {
-                          text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
-                      },
-                  },
-              };
-              setMessages((prev) => [...prev, botSays]);
-          }
-      } catch (err) {
-          console.log(err.message);
-  
-          // Display error message in the chat
-          setBotChatLoading(false);
-          const botSays = {
-              speaks: 'bot',
-              msg: {
-                  text: {
-                      text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
-                  },
-              },
-          };
-          setMessages((prev) => [...prev, botSays]);
-      }
-  };
-  
-   const handleFulfillmentMessages = (messagesArray) => {
-      if (Array.isArray(messagesArray)) {
-          messagesArray.forEach((msg) => {
-              if (msg.text && msg.text.text) {
-                  const botSays = {
-                      speaks: 'bot',
-                      msg: {
-                          text: {
-                              text: msg.text.text[0], // Handle first message
-                          },
-                      },
-                  };
-                  setMessages((prev) => [...prev, botSays]);
-              }
-          });
-      }
-   };
-   
-   const df_event_query = async (event, parameters = {}) => {
-      try {
-          setBotChatLoading(true);
-   
-          const body = {
-              type: 'event',
-              event,
-              session_id: cookies.get('userId'), // Consistent session ID for context
-              parameters,
-              language_code: 'en',
-          };
-   
-          const response = await fetch('/api/df_query/', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body),
-          });
-   
-          const data = await response.json();
-          setBotChatLoading(false);
-   
-          console.log('Full Query Result:', data.queryResult);
-   
-          let intent = data.queryResult?.intent?.displayName || 'undefined';
-          console.log('Detected Intent:', intent);
-   
-          if (intent === 'undefined' || intent === '') {
-              // If the intent is undefined or empty, handle it like a fallback.
-              console.warn('Undefined or empty intent detected.');
-              df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
-              return;
-          }
-   
-          // Add logging for debugging
-          const handleIntentMessages = () => {
-              if (data.queryResult?.fulfillmentMessages && Array.isArray(data.queryResult.fulfillmentMessages)) {
-                  handleFulfillmentMessages(data.queryResult.fulfillmentMessages);
-              } else {
-                  console.log(`No fulfillment messages found for intent: ${intent}`);
-              }
-          };
-   
-          switch (intent) {
-              case 'Default Welcome Intent':
-                  console.log('Handling Default Welcome Intent');
-                  handleFulfillmentMessages(data.queryResult.fulfillmentMessages);
-                  df_event_query('await_name');
-                  break;
-   
-              case 'get-name':
-                  console.log('Handling get-name Intent');
-                  const name = data.queryResult.parameters?.fields?.name?.stringValue;
-                  if (name) {
-                      console.log(`Captured Name: ${name}`);
-                      setUser((prev) => ({ ...prev, name }));
-                      handleFulfillmentMessages(data.queryResult.fulfillmentMessages);
-                  } else {
-                      console.log('Name not detected. Re-asking name.');
-                      df_event_query('ask-name-again');
-                  }
-                  break;
-   
-              case 'fallback-exceed-trigger-limit':
-                  console.log('Handling fallback-exceed-trigger-limit');
-                  handleIntentMessages();
+         const body = { text, userId: cookies.get('userId'), parameters };
+         const response = await fetch('http://localhost:5000/api/df_text_query/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+         });
+         const data = await response.json();
+         setBotChatLoading(false);
+         console.dir(data);
+
+         // provide message if response status 200, elese need to add chatbot message if server error 500
+         if (response.status === 200 && data) {
+            if (data.intent && data.intent.displayName === 'Default Welcome Intent') {
+               clearState();
+            } else if (!data.intent || endConversation) {
+               // trigger if the conversation was ended because of fallback exceed trigger limit
+               // or trigger if no other intent match, such as expired context or exceed 20mins
+               df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
+               clearState();
+               setEndConversation(true);
+            } else if (data.intent && data.intent.isFallback) {
+               // set fallbackCount if fallback is trigger
+               const intentName = data.intent.displayName;
+               if (fallbackCount[`${intentName}`] >= 5) {
+                  console.log('fallbackCount = ', fallbackCount[`${intentName}`]);
+                  df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
                   clearState();
                   setEndConversation(true);
-                  break;
-   
-              default:
-                  console.warn(`Unhandled intent detected: ${intent}`);
-                  df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
-                  break;
-          }
-   
-      } catch (err) {
-          console.error('Error in df_event_query:', err.message);
-          setBotChatLoading(false);
-          const botSays = {
-              speaks: 'bot',
-              msg: {
+                  return;
+               }
+
+               // object intent name does not exist assign 1 else if exisit just increment by 1
+               if (!fallbackCount[`${intentName}`]) setFallbackCount(prev => ({ ...prev, [intentName]: 1 }));
+               else setFallbackCount(prev => ({ ...prev, [intentName]: prev[`${intentName}`] + 1 }));
+            }
+
+            if (data.parameters.fields) {
+               // get parameters data and set it to state
+               const fields = data.parameters.fields;
+               if (fields.name) setUser(prev => ({ ...prev, name: fields.name.stringValue }));
+               else if (fields.age) setUser(prev => ({ ...prev, age: fields.age.numberValue }));
+               else if (fields.sex) setUser(prev => ({ ...prev, sex: fields.sex.stringValue }));
+               else if (fields.strand) setUser(prev => ({ ...prev, strand: fields.strand.stringValue }));
+            }
+
+            data.fulfillmentMessages.forEach(async msg => {
+               const botSays = {
+                  speaks: 'bot',
+                  msg: msg,
+               };
+               setMessages(prev => [...prev, botSays]);
+
+               // trigger something based on the payload sent by dialogflow
+               if (msg.payload && msg.payload.fields && msg.payload.fields.riasec) {
+                  const riasecValue = msg.payload.fields.riasec.stringValue;
+                  switch (riasecValue) {
+                     case 'realistic':
+                        setRiasec(prev => ({ ...prev, realistic: prev.realistic + 1 }));
+                        break;
+                     case 'investigative':
+                        setRiasec(prev => ({ ...prev, investigative: prev.investigative + 1 }));
+                        break;
+                     case 'artistic':
+                        setRiasec(prev => ({ ...prev, artistic: prev.artistic + 1 }));
+                        break;
+                     case 'social':
+                        setRiasec(prev => ({ ...prev, social: prev.social + 1 }));
+                        break;
+                     case 'enterprising':
+                        if (msg.payload.fields.riasec_last_question) {
+                           // trigger to get the up to date value of riasec with out waiting for the state to finish
+                           // because triggering the handleRiasecRecommendation() will not able to get the updated value of riasec state
+                           // applies only for enterprising since its the last question
+                           handleRiasecRecommendation({ ...riasec, enterprising: riasec.enterprising + 1 });
+                        }
+                        setRiasec(prev => ({ ...prev, enterprising: prev.enterprising + 1 }));
+                        break;
+                     case 'conventional':
+                        setRiasec(prev => ({ ...prev, conventional: prev.conventional + 1 }));
+                        break;
+                  }
+               }
+               if (msg.payload && msg.payload.fields && !msg.payload.fields.riasec && msg.payload.fields.riasec_last_question) {
+                  // trigger recommendation after last question and answer was "no"
+                  handleRiasecRecommendation(riasec);
+               }
+               if (msg.payload && msg.payload.fields && msg.payload.fields.iswant_strand_recommendation) {
+                  df_event_query('STRAND_RECOMMENDATION', { strand: user.strand });
+                  setIsRecommendationProvided(prev => ({ ...prev, strand: 'done' }));
+               }
+            });
+         } else {
+            const botSays = {
+               speaks: 'bot',
+               msg: {
                   text: {
-                      text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
+                     text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
                   },
-              },
-          };
-          setMessages((prev) => [...prev, botSays]);
+               },
+            };
+            setMessages(prev => [...prev, botSays]);
+         }
+      } catch (err) {
+         console.log(err.message);
+
+         setBotChatLoading(false);
+         const botSays = {
+            speaks: 'bot',
+            msg: {
+               text: {
+                  text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
+               },
+            },
+         };
+         setMessages(prev => [...prev, botSays]);
       }
    };
-   
 
-    const handleRiasecScores = (riasecValue, riasecLastQuestion) => {
-      // Update RIASEC state based on the value returned from Dialogflow
-      switch (riasecValue) {
-        case 'realistic':
-          setRiasec((prev) => ({ ...prev, realistic: prev.realistic + 1 }));
-          break;
-        case 'investigative':
-          setRiasec((prev) => ({ ...prev, investigative: prev.investigative + 1 }));
-          break;
-        case 'artistic':
-          setRiasec((prev) => ({ ...prev, artistic: prev.artistic + 1 }));
-          break;
-        case 'social':
-          setRiasec((prev) => ({ ...prev, social: prev.social + 1 }));
-          break;
-        case 'enterprising':
-          if (riasecLastQuestion) {
-            handleRiasecRecommendation({ ...riasec, enterprising: riasec.enterprising + 1 });
-          }
-          setRiasec((prev) => ({ ...prev, enterprising: prev.enterprising + 1 }));
-          break;
-        case 'conventional':
-          setRiasec((prev) => ({ ...prev, conventional: prev.conventional + 1 }));
-          break;
-        default:
-          console.warn('Unknown RIASEC value:', riasecValue);
-          break;
+   const df_event_query = async (event, parameters) => {
+      try {
+         setBotChatLoading(true);
+
+         const body = { event, userId: cookies.get('userId'), parameters };
+         const response = await fetch('http://localhost:5000/api/df_event_query/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+         });
+         const data = await response.json();
+         setBotChatLoading(false);
+         console.dir(data);
+
+         if (response.status === 200 && data) {
+            //clear all state when welcome intent trigger
+            if (data.intent && data.intent.displayName === 'Default Welcome Intent') {
+               clearState();
+            } else if (!data.intent) {
+               // or trigger if no other intent match, such as expired context or exceed 20mins
+               df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
+               clearState();
+               setEndConversation(true);
+
+               // make input field visible and not disable so users can type
+               // make sure that user can type and see the input after ending conversation
+               setDisabledInput(false);
+               setIsVisibleInput(true);
+            }
+
+            data.fulfillmentMessages.forEach(async msg => {
+               const botSays = {
+                  speaks: 'bot',
+                  msg: msg,
+               };
+               setMessages(prev => [...prev, botSays]);
+
+               // trigger something based on the payload sent by dialogflow
+               if (msg.payload && msg.payload.fields && msg.payload.fields.iswant_strand_recommendation) {
+                  df_event_query('STRAND_RECOMMENDATION', { strand: user.strand });
+                  setIsRecommendationProvided(prev => ({ ...prev, strand: 'done' }));
+               }
+               if (msg.payload && msg.payload.fields && msg.payload.fields.no_riasec_recommended_courses) {
+                  // trigger only when no riasec recommendation
+                  setIsRecommendationProvided(prev => ({ ...prev, riasec: '' }));
+               }
+               if (msg.payload && msg.payload.fields && msg.payload.fields.riasec_recommended_courses) {
+                  const recommendedCourses = msg.payload.fields.riasec_recommended_courses.listValue.values;
+                  setRiasecBasedRecommendedCourses(recommendedCourses.map(course => course.stringValue));
+               }
+               if (msg.payload && msg.payload.fields && msg.payload.fields.strand_recommended_courses) {
+                  const recommendedCourses = msg.payload.fields.strand_recommended_courses.listValue.values;
+                  setStrandBasedRecommendedCourses(recommendedCourses.map(course => course.stringValue));
+               }
+               if (msg.payload && msg.payload.fields && msg.payload.fields.end_conversation) {
+                  savedConversation(user, riasecCode, riasecBasedRecommendedCourses, strandBasedRecommendedCourses);
+                  clearState();
+                  setDisabledInput(true);
+                  setIsVisibleInput(false);
+               }
+            });
+         } else {
+            const botSays = {
+               speaks: 'bot',
+               msg: {
+                  text: {
+                     text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
+                  },
+               },
+            };
+
+            setMessages(prev => [...prev, botSays]);
+         }
+      } catch (err) {
+         console.log(err.message);
+
+         setBotChatLoading(false);
+         const botSays = {
+            speaks: 'bot',
+            msg: {
+               text: {
+                  text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
+               },
+            },
+         };
+
+         setMessages(prev => [...prev, botSays]);
       }
-    };
-    
-   
-  
+   };
+
    const triggerCourseOptionYes = () => {
       // this will keep the context exceeds the time limit of 20mins, because users might take time watching the videos
       // after the  course options was rendered, trigger the course option timer after 15 minutes to reset the timer of the intent's context
@@ -389,7 +308,7 @@ const Chatbot = () => {
          const timerId = setInterval(async () => {
             try {
                const body = { event: 'COURSE_OPTIONS_YES', userId: cookies.get('userId') };
-               await fetch('/api/df_event_query/', {
+               await fetch('/api/df_event_query', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(body),
@@ -470,97 +389,194 @@ const Chatbot = () => {
       else if (basis === 'strand') df_event_query('GET_STRAND_RECOMMENDATION_COURSE_INFO', { course_to_lookup: course });
    };
 
-   const savedConversation = async (user, riasecCode, riasecCourses, strandCourses) => {
+   const refreshAccessToken = async () => {
       try {
-         const body = {
-            name: titleCase(user.name),
-            age: user.age,
-            sex: user.sex,
-            strand: user.strand,
-            riasec_code: riasecCode,
-            riasec_course_recommendation: riasecCourses,
-            strand_course_recommendation: strandCourses,
-         };
-
-         const response = await fetch('/user/conversations', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-         });
-         const data = await response.json();
-         if (response.status === 200) console.log(data.message);
+          const refreshToken = localStorage.getItem('refreshToken');
+  
+          if (!refreshToken) {
+              console.error('No refresh token found.');
+              return null;
+          }
+  
+          const response = await fetch('http://localhost:8000/api/token/refresh/', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ refresh: refreshToken }),
+          });
+  
+          const data = await response.json();
+  
+          if (response.status === 200) {
+              localStorage.setItem('token', data.access);  // Store new access token
+              return data.access;
+          } else {
+              console.error('Error refreshing token:', data);
+              return null;
+          }
       } catch (err) {
-         console.error(err.message);
+          console.error('Error refreshing access token:', err.message);
+          return null;
       }
-   };
+  };
+  const savedConversation = async (user, riasecCode, riasecCourses, strandCourses) => {
+   try {
+       let token = localStorage.getItem('token'); // Get JWT access token
 
+       if (!token) {
+           console.error('No JWT access token found.');
+           return;
+       }
+
+       const body = {
+           name: titleCase(user.name), // Ensure the name is title-cased
+           age: user.age,
+           sex: user.sex,
+           strand: user.strand,
+           riasec_code: riasecCode, // RIASEC code should be an array
+           riasec_course_recommendation: riasecCourses, // Array of recommended courses based on RIASEC
+           strand_course_recommendation: strandCourses, // Array of strand-based recommended courses
+       };
+
+       // First request to save conversation
+       const response = await fetch('http://localhost:8000/api/save-conversation/', {
+           method: 'POST',
+           headers: {
+               'Content-Type': 'application/json',
+               'Authorization': `Bearer ${token}`, // Include JWT token in Authorization header
+           },
+           body: JSON.stringify(body),
+       });
+
+       if (response.status === 401) {
+           // If token is expired or invalid, attempt to refresh
+           console.warn('Access token expired or invalid, attempting to refresh...');
+           token = await refreshAccessToken(); // Function to refresh token
+
+           if (!token) {
+               console.error('Failed to refresh access token.');
+               return;
+           }
+
+           // Retry request with refreshed token
+           const retryResponse = await fetch('http://localhost:8000/api/save-conversation/', {
+               method: 'POST',
+               headers: {
+                   'Content-Type': 'application/json',
+                   'Authorization': `Bearer ${token}`, // Use new token
+               },
+               body: JSON.stringify(body),
+           });
+
+           const retryData = await retryResponse.json();
+
+           if (retryResponse.status === 200) {
+               console.log('Conversation saved successfully after token refresh:', retryData.message);
+           } else {
+               console.error('Error saving conversation after token refresh:', retryData.error);
+           }
+       } else if (response.status === 200) {
+           // If first request is successful
+           const data = await response.json();
+           console.log('Conversation saved successfully:', data.message);
+       } else {
+           // Other errors
+           const errorData = await response.json();
+           console.error('Error saving conversation:', errorData.error);
+       }
+   } catch (err) {
+       // Catch any unexpected errors during the request
+       console.error('Unexpected error saving conversation:', err.message);
+   }
+};
+
+  
    const renderCards = cards => {
       return cards.map((card, i) => <Card key={i} payload={card.structValue} />);
    };
 
    const renderMessage = (message, i) => {
-      console.log('Rendering message:', message);
-  
-      if (message.msg?.text?.text) {
-          // Handle text messages
-          return (
-              <Message
-                  key={i}
-                  keyword={message.keyword}
-                  terms={message.terms && message.terms}
-                  speaks={message.speaks}
-                  text={message.msg.text.text}
-              />
-          );
-      } else if (message.msg?.payload?.fields?.cards) {
-          // Handle card messages
-          return (
-              <Fragment key={i}>
-                  <div className='message-cards'>
-                      <img className='chatbot-avatar message-avatar' src={chatbotAvatar} alt='chathead' />
-                      <div className='cards'>
-                          <div style={{ width: message.msg.payload.fields.cards.listValue.values.length * 270 }}>
-                              {renderCards(message.msg.payload.fields.cards.listValue.values)}
-                          </div>
-                      </div>
+      if (message.msg && message.msg.text && message.msg.text.text) {
+         return (
+            <Message key={i} keyword={message.keyword} terms={message.terms && message.terms} speaks={message.speaks} text={message.msg.text.text} />
+         );
+      } else if (message.msg && message.msg.payload.fields.cards) {
+         return (
+            <Fragment key={i}>
+               <div className='message-cards'>
+                  <img className='chatbot-avatar message-avatar' src={chatbotAvatar} alt='chathead' />
+                  <div className='cards'>
+                     <div style={{ width: message.msg.payload.fields.cards.listValue.values.length * 270 }}>
+                        {renderCards(message.msg.payload.fields.cards.listValue.values)}
+                     </div>
                   </div>
-                  {message.msg.payload.fields.quick_replies && (
-                      <QuickReplies
-                          triggerCourseOptionYes={triggerCourseOptionYes}
-                          clearCourseOptionsYes={clearCourseOptionsYes}
-                          isCardQuickReplies={!!message.msg.payload.fields.cards}
-                          messages={messages}
-                          setMessages={setMessages}
-                          replyClick={handleQuickReplyPayload}
-                          payload={message.msg.payload.fields.quick_replies.listValue.values}
-                      />
-                  )}
-              </Fragment>
-          );
-      } else if (message.msg?.payload?.fields?.quick_replies) {
-          // **Handle quick replies (newly added code)** 
-          return (
-              <QuickReplies
-                  key={i}
-                  messages={messages}
-                  setMessages={setMessages}
-                  replyClick={handleQuickReplyPayload}
-                  isRiasecQuickReplies={message.msg.payload.fields.isriasec_quick_replies?.boolValue}
-                  payload={message.msg.payload.fields.quick_replies.listValue.values}
-              />
-          );
-      } else {
-          // Handle unknown message format
-          return (
-              <div key={i} className='message bot'>
-                  <p>Message format not recognized</p>
-              </div>
-          );
+               </div>
+               {message.msg.payload.fields.quick_replies && (
+                  <QuickReplies
+                     triggerCourseOptionYes={triggerCourseOptionYes}
+                     clearCourseOptionsYes={clearCourseOptionsYes}
+                     isCardQuickReplies={message.msg.payload.fields.cards ? true : false}
+                     messages={messages}
+                     setMessages={setMessages}
+                     replyClick={handleQuickReplyPayload}
+                     payload={message.msg.payload.fields.quick_replies.listValue.values}
+                  />
+               )}
+            </Fragment>
+         );
+      } else if (
+         message.msg &&
+         message.msg.payload &&
+         message.msg.payload.fields &&
+         message.msg.payload.fields.quick_replies &&
+         message.msg.payload.fields.basis &&
+         message.msg.payload.fields.recommended_courses_info
+      ) {
+         return (
+            <RecommendedCoursesQuickReply
+               key={i}
+               payload={message.msg.payload.fields.quick_replies.listValue.values}
+               basis={message.msg.payload.fields.basis.stringValue}
+            />
+         );
+      } else if (message.msg && message.msg.payload && message.msg.payload.fields && message.msg.payload.fields.quick_replies) {
+         return (
+            <QuickReplies
+               key={i}
+               messages={messages}
+               setMessages={setMessages}
+               replyClick={handleQuickReplyPayload}
+               isRiasecQuickReplies={message.msg.payload.fields.isriasec_quick_replies && message.msg.payload.fields.isriasec_quick_replies.boolValue}
+               payload={message.msg.payload.fields.quick_replies.listValue.values}
+            />
+         );
+      } else if (
+         message.msg &&
+         message.msg.payload &&
+         message.msg.payload.fields &&
+         message.msg.payload.fields.basis &&
+         (message.msg.payload.fields.riasec_recommended_courses || message.msg.payload.fields.strand_recommended_courses)
+      ) {
+         return (
+            <RecommendedCoursesMessage
+               key={i}
+               speaks={message.speaks}
+               isRecommendationProvided
+               handleMessagesScrollToBottom={handleMessagesScrollToBottom}
+               dialogflowEventQuery={df_event_query}
+               setTextMessage={setTextMessage}
+               strand={user.strand}
+               basis={message.msg.payload.fields.basis.stringValue}
+               recommendedCourses={
+                  message.msg.payload.fields.basis.stringValue === 'riasec'
+                     ? message.msg.payload.fields.riasec_recommended_courses.listValue.values
+                     : message.msg.payload.fields.strand_recommended_courses.listValue.values
+               }
+            />
+         );
       }
-  };
-  
-  
-  
+   };
 
    const renderMessages = messages => {
       if (messages && messages.length > 0) {
@@ -570,13 +586,11 @@ const Chatbot = () => {
       } else return null;
    };
 
-   // Ensure user response is captured and sent to Dialogflow
-   const send = (e) => {
+   const send = e => {
       e.preventDefault();
-      df_text_query(textMessage); // Trigger Dialogflow query with user input
-      setTextMessage(''); // Clear input field
+      df_text_query(textMessage);
+      setTextMessage('');
    };
- 
 
    const handleMessagesScrollToBottom = () => {
       // element.scrollTop = element.scrollHeight - element is the container of message
@@ -679,105 +693,111 @@ const Chatbot = () => {
 
    return (
       <>
-         {/* Chatbot UI */}
-{showBot && (
-  <div className='chatbot shadow'>
-    {/* Chatbot Header */}
-    <div className='chatbot-header d-flex justify-content-between align-items-center bg-primary'>
-      <div>
-        <img className='chatbot-avatar' src={chathead} alt='chathead' />
-        <h2 className='ms-2 h6 d-inline custom-heading'>Anna</h2>
-      </div>
-      <MdClose className='chatbot-close' onClick={() => setShowbot(false)} />
-    </div>
+         {showBot ? (
+            <div className='chatbot shadow'>
+               {/* chatbot header */}
+               <div className='chatbot-header d-flex justify-content-between align-items-center bg-primary'>
+                  <div>
+                     <img className='chatbot-avatar' src={chathead} alt='chathead' />
+                     <h2 className='ms-2 h6 d-inline custom-heading'>Anna</h2>
+                  </div>
+                  <MdClose className='chatbot-close' onClick={() => setShowbot(false)} />
+               </div>
+               {/* chatbot messages */}
+               <div ref={messagesRef} className='chatbot-messages'>
+                  {/* <button className='btn btn-primary' onClick={() => handleRiasecRecommendation(riasec)}>
+                     Identify RIASEC Area
+                  </button> */}
 
-    {/* Chatbot Messages */}
-    <div ref={messagesRef} className='chatbot-messages'>
-      {renderMessages(messages)}
-      {botChatLoading && (
-        <div className='message bot'>
-          <div>
-            <img className='chatbot-avatar message-avatar' src={chatbotAvatar} alt='chathead' />
-          </div>
-          <div className='message-text bot'>
-            <img className='message-loading' src={chatloading} alt='loading' />
-          </div>
-        </div>
-      )}
-    </div>
+                  {renderMessages(messages)}
+                  {/* <div ref={messageEnd}></div> */}
+                  {botChatLoading && (
+                     <div className='message bot'>
+                        <div>
+                           <img className='chatbot-avatar message-avatar' src={chatbotAvatar} alt='chathead' />
+                        </div>
+                        <div className='message-text bot'>
+                           <img className='message-loading' src={chatloading} alt='loading' />
+                        </div>
+                     </div>
+                  )}
+               </div>
+               {/* text-input */}
+               <form className='chatbot-text-input' onSubmit={send}>
+                  <input
+                     ref={inputRef}
+                     className={`${isVisibleInput ? 'visible' : 'invisible'}`}
+                     disabled={!isAgreeTermsConditions || disabledInput ? true : false}
+                     value={textMessage}
+                     type='text'
+                     placeholder='Your answer here...'
+                     onChange={e => setTextMessage(e.target.value)}
+                  />
+                  <button className='btn p-0 chatbot-send' disabled={!textMessage ? true : false} type='submit'>
+                     <MdSend className={`chatbot-send text-primary ${isVisibleInput ? 'visible' : 'invisible'}`} />
+                  </button>
+               </form>
+            </div>
+         ) : (
+            <div className='chathead-container'>
+               <div className='chathead-message'>Hi! Chat with me 😊</div>
+               <img className='chathead' src={chathead} alt='chathead' onClick={() => setShowbot(true)} />
+            </div>
+         )}
 
-    {/* Text Input */}
-    <form className='chatbot-text-input' onSubmit={send}>
-         <input
-         ref={inputRef}
-         className={`${isVisibleInput ? 'visible' : 'invisible'}`}
-         disabled={disabledInput}  // Ensure it's only disabled based on actual conditions
-         value={textMessage}
-         type='text'
-         placeholder='Your answer here...'
-         onChange={(e) => setTextMessage(e.target.value)}
-      />
+         {/* terms & conditions modal */}
+         <Modal title='Terms and Conditions' target='modal-terms-conditions' size='modal-lg'>
+            <div className='p-2'>
+               <p>In using Anna, you agree to these terms and conditions:</p>
+               <ol className='m-0' type='A'>
+                  <li>All responses and correspondences with Anna will be recorded.</li>
+                  <li>
+                     Information such as name (required), age (required), sex (required), senior high school strand (required), and related
+                     correspondence will be for the exclusive use of this study to continuously improve Anna.
+                  </li>
+                  <li>The data collected will be used for as long as it is needed for further analysis or investigation.</li>
+                  <li>You are free to exit the conversation with Anna if you feel the need to do so.</li>
+               </ol>
+            </div>
 
-      <button className='btn p-0 chatbot-send' disabled={!textMessage} type='submit'>
-         <MdSend className={`chatbot-send text-primary ${isVisibleInput ? 'visible' : 'invisible'}`} />
-      </button>
-   </form>
-  </div>
-)}
+            <div className='p-2'>
+               <h1 className='h5 custom-heading text-primary'>TITLE OF STUDY:</h1>
+               <p className='mb-1'>ANNA: A Web-based Chatbot for Career Planning following Cooperative Principle</p>
+            </div>
 
-   {/* Terms & Conditions Modal */}
-   <Modal title='Terms and Conditions' target='modal-terms-conditions' size='modal-lg'>
-   <div className='p-2'>
-      <p>In using Anna, you agree to these terms and conditions:</p>
-      <ol className='m-0' type='A'>
-         <li>All responses and correspondences with Anna will be recorded.</li>
-         <li>
-         Information such as name (required), age (required), sex (required), senior high school strand (required), and related
-         correspondence will be for the exclusive use of this study to continuously improve Anna.
-         </li>
-         <li>The data collected will be used for as long as it is needed for further analysis or investigation.</li>
-         <li>You are free to exit the conversation with Anna if you feel the need to do so.</li>
-      </ol>
-   </div>
+            <div className='p-2'>
+               <h1 className='h5 custom-heading text-primary'>RESEARCHERS:</h1>
+               <p className='mb-1'>Rey Mond Gomera, John Michael Amto, Ryan Christian Hibaya</p>
+            </div>
 
-   <div className='p-2'>
-      <h1 className='h5 custom-heading text-primary'>TITLE OF STUDY:</h1>
-      <p className='mb-1'>ANNA: A Web-based Chatbot for Career Planning following Cooperative Principle</p>
-   </div>
+            <div className='p-2'>
+               <h1 className='h5 custom-heading text-primary'>USER GUIDELINES:</h1>
+               <p>Anna could only converse in the English language. It is then recommended that your responses be in English.</p>
+               <p>
+                  If the user is idle for more than 20 minutes, Anna would end the conversation by replying with phrases like, "I think I lost you
+                  there. Please do reach out to me again anytime. I'll be here 😊". If this happens, greeting Anna with words like "Hello", or "Hi",
+                  will start a new conversation.
+               </p>
+               <p className='mb-1'>
+                  If any problems occur during the conversation process, or you have any suggestions or comments you would like to share with the
+                  researchers, please leave a feedback
+                  <a className='text-primary ms-1' href='/#feedback'>
+                     here
+                  </a>
+                  . Your insights and suggestions would help improve our project.
+               </p>
+            </div>
 
-   <div className='p-2'>
-      <h1 className='h5 custom-heading text-primary'>RESEARCHERS:</h1>
-      <p className='mb-1'>Rey Mond Gomera, John Michael Amto, Ryan Christian Hibaya</p>
-   </div>
-
-   <div className='p-2'>
-      <h1 className='h5 custom-heading text-primary'>USER GUIDELINES:</h1>
-      <p>Anna could only converse in the English language. It is then recommended that your responses be in English.</p>
-      <p>
-         If the user is idle for more than 20 minutes, Anna would end the conversation by replying with phrases like, "I think I lost you
-         there. Please do reach out to me again anytime. I'll be here 😊". If this happens, greeting Anna with words like "Hello", or "Hi",
-         will start a new conversation.
-      </p>
-      <p className='mb-1'>
-         If any problems occur during the conversation process, or you have any suggestions or comments you would like to share with the
-         researchers, please leave feedback
-         <a className='text-primary ms-1' href='/#feedback'>
-         here
-         </a>
-         . Your insights and suggestions would help improve our project.
-      </p>
-   </div>
-
-   <div className='p-2'>
-      <h1 className='h5 custom-heading text-primary'>CONFIDENTIALITY</h1>
-      <p>
-         The information that Anna will be obtaining throughout the conversation will remain confidential to protect your rights or welfare.
-      </p>
-      <p>
-         RA 10173 or the Data Privacy Act protects individuals from unauthorized processing of personal information. To ensure that your
-         information is protected, the researchers will follow this law to keep your information safe and confidential.
-      </p>
-   </div>
+            <div className='p-2'>
+               <h1 className='h5 custom-heading text-primary'>CONFIDENTIALITY</h1>
+               <p>
+                  The information that Anna will be obtaining throughout the conversation will remain confidential to protect your rights or welfare.
+               </p>
+               <p>
+                  RA 10173 or the Data Privacy Act protects individuals from unauthorized processing of personal information. To ensure that your
+                  information is protected, the researchers will follow this law to keep your information safe and confidential.
+               </p>
+            </div>
 
             <div className='p-2'>
                <h1 className='h5 custom-heading text-primary'>DEFINITIONS</h1>

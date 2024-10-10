@@ -85,12 +85,14 @@ SIMPLE_JWT = {
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://localhost:8000",
     "http://127.0.0.1:3000",
     "http://school1.localhost:3000",
     "http://school1.localhost:8000",
     "http://uic.localhost:8000",
     "http://uic.localhost:3000",
 ]
+
 CORS_ALLOW_HEADERS = ["accept", "accept-encoding", "authorization", "content-type", "dnt", "origin", "user-agent", "x-csrftoken", "x-requested-with"]
 CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CORS_ALLOW_CREDENTIALS = True 
@@ -107,17 +109,16 @@ CSRF_TRUSTED_ORIGINS = [
 
 # Applications listed in SHARED_APPS will be synced to the public schema
 SHARED_APPS = (
-    'django_tenants', 
+    'django_tenants',
     'django.contrib.contenttypes',
-    'django.contrib.admin',
+    'django.contrib.admin',  # Admin should be here for public tenant
     'django.contrib.auth',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'custom_auth', 
+    'custom_auth',
     'corsheaders',
 )
-
 # TENANT_APPS
 TENANT_APPS = (
     'django.contrib.auth',
@@ -222,10 +223,12 @@ USE_TZ = True
 # Static files
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Add this line
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-PUBLIC_DOMAIN = 'localhost:8000'
+PUBLIC_DOMAIN = 'localhost'
 ADMIN_URL = 'admin/'

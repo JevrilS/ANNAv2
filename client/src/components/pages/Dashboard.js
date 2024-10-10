@@ -5,12 +5,15 @@ import { MdFilterAlt, MdDownload } from 'react-icons/md';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import randomColor from 'randomcolor';
+import { useNavigate } from 'react-router-dom';  // <-- Import useNavigate
 
 import BarChart from '../BarChart';
-import ContentNavbar from './ContentNavbar';
+// import ContentNavbar from './ContentNavbar';//
 import '../../styles/charts.css';
 
 const Dashboard = () => {
+   const navigate = useNavigate();  // <-- Call useNavigate
+
    const isMounted = useRef(false);
    const initialRender = useRef(false);
 
@@ -52,6 +55,9 @@ const Dashboard = () => {
    const [isLoading, setisLoading] = useState(false);
    const [isOverAll, setIsOverAll] = useState(true);
 
+   const [recommendedCourses, setRecommendedCourses] = useState([]);
+   const [strandCourses, setStrandCourses] = useState([]);
+
    const [inputs, setInputs] = useState({ strand: 'all' });
    const { strand } = inputs;
 
@@ -69,35 +75,29 @@ const Dashboard = () => {
    });
 
    const fetchAllConversations = async () => {
-      // convert array distict strand to object assign value to 0(zero), lowercase its property name, remove space and charater that is not letter
-      setStudentByStrand(
-         strandOptions.reduce(
-            (a, v) => ({
-               ...a,
-               [v
-                  .toLowerCase()
-                  .replaceAll(' ', '')
-                  .replaceAll(/[^a-zA-Z ]/g, '')]: 0,
-            }),
-            {}
-         )
-      );
-
       try {
-         setisLoading(true);
-         const response = await fetch(`/admin/conversations?strand=all&year=${schoolYearStart ? schoolYearStart.getFullYear() : ''}`, {
-            headers: { token: localStorage.getItem('token') },
-         });
-         const data = await response.json();
-
-         if (isMounted.current && response.status === 200) {
-            setConversationsPerStrand(data.conversations);
-            setisLoading(false);
-         } else toast.error(data.message);
+          setisLoading(true);
+          const response = await fetch('/api/get-conversations', {
+              headers: { token: localStorage.getItem('token') },  // JWT auth header
+          });
+          const data = await response.json();
+  
+          if (response.status === 200) {
+              // Set RIASEC scores, recommended courses, and conversation history in the state
+              setStudentByHighestRiasec(data.riasec_scores);
+              setRecommendedCourses(data.recommended_courses); // assuming you want to display this
+              setStrandCourses(data.strand_courses); // assuming you want to display this
+              setConversations(data.conversation_history); // for conversation history if you need to display it
+              setisLoading(false);
+          } else {
+              toast.error(data.message);
+              setisLoading(false);
+          }
       } catch (err) {
-         console.log(err.message);
+          console.error('Error fetching conversations:', err.message);
+          setisLoading(false);
       }
-   };
+  };
 
    const fetchConversationsByStrand = async strand => {
       setStudentBySex({ male: 0, female: 0 });
@@ -151,41 +151,69 @@ const Dashboard = () => {
 
    const fetchDistinctStrand = async () => {
       try {
-         const response = await fetch('/admin/courses-distinct-strand', {
-            headers: { token: localStorage.getItem('token') },
-         });
-         const data = await response.json();
-
-         if (isMounted.current && response.status === 200) {
-            setStrandOptions(data);
-
-            // convert array distict strand to object assign value to 0(zero), lowercase its property name, remove space and charater that is not letter
-            const value = data.reduce(
-               (a, v) => ({
-                  ...a,
-                  [v
-                     .toLowerCase()
-                     .replaceAll(' ', '')
-                     .replaceAll(/[^a-zA-Z ]/g, '')]: 0,
-               }),
-               {}
-            );
-
-            setStudentByStrand(value);
-            Object.keys(studentByHighestRiasecPerStrand).map(key => {
-               setStudentByHighestRiasecPerStrand(prev => ({ ...prev, [key]: value }));
-            });
-            Object.keys(studentBySex).map(key => {
-               setStudentBySexPerStrand(prev => ({ ...prev, [key]: value }));
-            });
-
-            setStrandBarColors(prev => [...prev, ...data.map(s => randomColor({ count: 5 }))]);
-         } else toast.error(data.message);
+          const accessToken = localStorage.getItem('access');
+          const refreshToken = localStorage.getItem('refresh');
+  
+          if (!accessToken) {
+              toast.error('No access token found, please login again');
+              navigate('/login');
+              return;
+          }
+  
+          let response = await fetch('/courses-distinct-strand', {
+              method: 'GET',
+              headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json',
+              },
+          });
+  
+          if (response.status === 401) {
+              // Try to refresh token
+              const refreshResponse = await fetch('/api/token/refresh/', {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ refresh: refreshToken }),
+              });
+  
+              if (refreshResponse.status === 200) {
+                  const refreshData = await refreshResponse.json();
+                  localStorage.setItem('access', refreshData.access);
+  
+                  // Retry the original request
+                  response = await fetch('/courses-distinct-strand', {
+                      method: 'GET',
+                      headers: {
+                          'Authorization': `Bearer ${refreshData.access}`,
+                          'Content-Type': 'application/json',
+                      },
+                  });
+  
+                  if (response.status !== 200) {
+                      toast.error('Failed to fetch strands after token refresh');
+                  } else {
+                      const data = await response.json();
+                      setStrandOptions(data);
+                  }
+              } else {
+                  toast.error('Session expired, please login again');
+                  navigate('/login');
+              }
+          } else if (response.status === 200) {
+              const data = await response.json();
+              setStrandOptions(data);
+          } else {
+              toast.error('Failed to fetch strands');
+          }
       } catch (err) {
-         console.log(err.message);
+          console.error('Error fetching strands:', err.message);
+          toast.error('An error occurred while fetching strands');
       }
-   };
-
+  };
+  
+  
    const getOptions = titleText => {
       return {
          responsive: true,
@@ -508,7 +536,7 @@ const Dashboard = () => {
 
    return (
       <div className='admin-contents px-4 pb-4 position-relative'>
-         <ContentNavbar />
+   
          <h1 className='h3 custom-heading mt-3 mb-2'>Dashboard</h1>
          <div className='d-flex flex-wrap justify-content-end align-items-center'>
             <div className='d-flex align-items-center me-3 mb-3'>

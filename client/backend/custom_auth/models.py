@@ -61,6 +61,7 @@ class Conversation(models.Model):
     strand_course_recommendation = models.JSONField()  # Store strand course recommendations as JSON
     created_at = models.DateTimeField(auto_now_add=True)
 
+
 # Ensure this model is recognized in the 'shared' apps or 'public' schema.
 class School(models.Model):
     """
@@ -78,8 +79,12 @@ class School(models.Model):
     def __str__(self):
         return self.school_des
 
-
 class User(AbstractBaseUser, PermissionsMixin):
+    USER_TYPES = (
+        ('student', 'Student'),
+        ('guidance', 'Guidance'),
+    )
+    
     id_no = models.CharField(max_length=20, unique=True)
     full_name = models.CharField(max_length=255)
     email = models.EmailField(unique=True)
@@ -92,11 +97,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
     last_login = models.DateTimeField(auto_now=True)  # Add this line
+    user_type = models.CharField(max_length=10, choices=USER_TYPES, default='student')  # New field to distinguish user type
 
     objects = MyUserManager()
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['id_no', 'full_name', 'mobile_no', 'sex', 'strand', 'grade_level']
+
     groups = models.ManyToManyField(
         'auth.Group',
         related_name='custom_user_set',
@@ -114,6 +121,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
 class Feedback(models.Model):
     """
     Model to handle feedback submitted by users.

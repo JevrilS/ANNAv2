@@ -14,17 +14,12 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import api from '../../styles/../utils/api'; // Import the Axios instance
-import Kommunicate from "@kommunicate/kommunicate-chatbot-plugin";
 
 
 window.$ = $;
 window.jQuery = $;
 
 const LandingPage = () => {
-  Kommunicate.init("3fb3f663dec75e7eb50596f39f46f29ac", {
-    automaticChatOpenOnNavigation: true,
-    popupWidget: true
-  });
   const [auth, setAuth] = useState(false); // Add state for authentication
   const { setShowbot } = useContext(ChatbotContext);
 
@@ -37,8 +32,9 @@ const LandingPage = () => {
     school_id: '',
     mobile_no: '',
     sex: '',
+    age: '',  // Add age
     strand: '',
-    grade_level: '',
+    grade_level: ''
   });
 
   const [feedbackData, setFeedbackData] = useState({
@@ -408,7 +404,6 @@ const handleRegister = async (e) => {
         <small className='w-100 d-block mt-5 p-2 text-center bg-primary-dark'>ANNA | Copyright © 2022</small>
       </footer>
 
-      return (
         <Modal
       title='Login'
       target='modal-login'
@@ -479,186 +474,214 @@ const handleRegister = async (e) => {
     </Modal>
 
     <Modal
-      title='Register'
-      target='modal-register'
-      size='modal-md'
-      show={showRegisterModal}
-      onHide={() => setShowRegisterModal(false)}
-      dialogClassName='modal-dialog-centered register-modal' // Apply custom class for styling
-    >
-      <form onSubmit={handleRegister} className='register-form'>
-        <div className='d-flex flex-column align-items-center'>
-          <h2 className='mb-3 modal-title'>Register</h2>
-        </div>
-        <div className='mb-3 input-group'>
-          <span className='input-group-text'>
-            <i className='fas fa-id-card'></i>
-          </span>
-          <input
-            type='text'
-            className='form-control'
-            id='id_no'
-            placeholder='ID No.'
-            value={formData.id_no}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div className='mb-3 input-group'>
-          <span className='input-group-text'>
-            <i className='fas fa-user'></i>
-          </span>
-          <input
-            type='text'
-            className='form-control'
-            id='full_name'
-            placeholder='Full Name'
-            value={formData.full_name}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div className='mb-3 input-group'>
-          <span className='input-group-text'>
-            <i className='fas fa-envelope'></i>
-          </span>
-          <input
-            type='email'
-            className='form-control'
-            id='email'
-            placeholder='Email'
-            value={formData.email}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div className='mb-3 input-group'>
-          <span className='input-group-text'>
-            <i className='fas fa-key'></i>
-          </span>
-          <input
-            type='password'
-            className='form-control'
-            id='password'
-            placeholder='Password'
-            value={formData.password}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div className='mb-3 input-group'>
-          <span className='input-group-text'>
-            <i className='fas fa-key'></i>
-          </span>
-          <input
-            type='password'
-            className='form-control'
-            id='confirm_password'
-            placeholder='Confirm Password'
-            value={formData.confirm_password}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div className='mb-3 input-group'>
-          <span className='input-group-text'>
-            <i className='fas fa-school'></i>
-          </span>
-          <select
-            className='form-control'
-            id='school_id'
-            value={formData.school_id}
-            onChange={handleChange}
-            required
-          >
-            <option value='' hidden>
-              Select School
-            </option>
-            {schools.map((school) => (
-              <option key={school.id} value={school.id}>
-                {school.school_des}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className='mb-3 input-group'>
-          <span className='input-group-text'>
-            <i className='fas fa-phone'></i>
-          </span>
-          <input
-            type='text'
-            className='form-control'
-            id='mobile_no'
-            placeholder='Mobile No.'
-            value={formData.mobile_no}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div className='mb-3 input-group'>
-          <span className='input-group-text'>
-            <i className='fas fa-venus-mars'></i>
-          </span>
-          <select
-            className='form-control'
-            id='sex'
-            value={formData.sex}
-            onChange={handleChange}
-            required
-          >
-            <option value='' hidden>
-              Sex
-            </option>
-            <option value='Male'>Male</option>
-            <option value='Female'>Female</option>
-          </select>
-        </div>
-        <div className='mb-3 input-group'>
-          <span className='input-group-text'>
-            <i className='fas fa-graduation-cap'></i>
-          </span>
-          <select
-            className='form-control'
-            id='strand'
-            value={formData.strand}
-            onChange={handleChange}
-            required
-          >
-            <option value='' hidden>
-              Strand
-            </option>
-            <option value='ABM'>ABM</option>
-            <option value='ARTSDESIGN'>ARTS&DESIGN</option>
-            <option value='STEM'>STEM</option>
-            <option value='HUMMS'>HUMMS</option>
-            <option value='TVL'>TVL</option>
-          </select>
-        </div>
-        <div className='mb-3 input-group'>
-          <span className='input-group-text'>
-            <i className='fas fa-level-up-alt'></i>
-          </span>
-          <select
-            className='form-control'
-            id='grade_level'
-            value={formData.grade_level}
-            onChange={handleChange}
-            required
-          >
-            <option value='' hidden>
-              Grade Level
-            </option>
-            <option value='11'>Grade 11</option>
-            <option value='12'>Grade 12</option>
-          </select>
-        </div>
-        <div className='d-flex justify-content-center w-100'>
-          <button type='submit' className='btn btn-primary'>
-            Register
-          </button>
-        </div>
-      </form>
-    </Modal>
+  title='Register'
+  target='modal-register'
+  size='modal-md'
+  show={showRegisterModal}
+  onHide={() => setShowRegisterModal(false)}
+  dialogClassName='modal-dialog-centered register-modal' // Apply custom class for styling
+>
+  <form onSubmit={handleRegister} className='register-form'>
+    <div className='d-flex flex-column align-items-center'>
+      <h2 className='mb-3 modal-title'>Register</h2>
+    </div>
+
+    <div className='mb-3 input-group'>
+      <span className='input-group-text'>
+        <i className='fas fa-id-card'></i>
+      </span>
+      <input
+        type='text'
+        className='form-control'
+        id='id_no'
+        placeholder='ID No.'
+        value={formData.id_no}
+        onChange={handleChange}
+        required
+      />
+    </div>
+
+    <div className='mb-3 input-group'>
+      <span className='input-group-text'>
+        <i className='fas fa-user'></i>
+      </span>
+      <input
+        type='text'
+        className='form-control'
+        id='full_name'
+        placeholder='Full Name'
+        value={formData.full_name}
+        onChange={handleChange}
+        required
+      />
+    </div>
+
+    <div className='mb-3 input-group'>
+      <span className='input-group-text'>
+        <i className='fas fa-envelope'></i>
+      </span>
+      <input
+        type='email'
+        className='form-control'
+        id='email'
+        placeholder='Email'
+        value={formData.email}
+        onChange={handleChange}
+        required
+      />
+    </div>
+
+    <div className='mb-3 input-group'>
+      <span className='input-group-text'>
+        <i className='fas fa-key'></i>
+      </span>
+      <input
+        type='password'
+        className='form-control'
+        id='password'
+        placeholder='Password'
+        value={formData.password}
+        onChange={handleChange}
+        required
+      />
+    </div>
+
+    <div className='mb-3 input-group'>
+      <span className='input-group-text'>
+        <i className='fas fa-key'></i>
+      </span>
+      <input
+        type='password'
+        className='form-control'
+        id='confirm_password'
+        placeholder='Confirm Password'
+        value={formData.confirm_password}
+        onChange={handleChange}
+        required
+      />
+    </div>
+
+    <div className='mb-3 input-group'>
+      <span className='input-group-text'>
+        <i className='fas fa-school'></i>
+      </span>
+      <select
+        className='form-control'
+        id='school_id'
+        value={formData.school_id}
+        onChange={handleChange}
+        required
+      >
+        <option value='' hidden>
+          Select School
+        </option>
+        {schools.map((school) => (
+          <option key={school.id} value={school.id}>
+            {school.school_des}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    <div className='mb-3 input-group'>
+      <span className='input-group-text'>
+        <i className='fas fa-phone'></i>
+      </span>
+      <input
+        type='text'
+        className='form-control'
+        id='mobile_no'
+        placeholder='Mobile No.'
+        value={formData.mobile_no}
+        onChange={handleChange}
+        required
+      />
+    </div>
+
+    <div className='mb-3 input-group'>
+      <span className='input-group-text'>
+        <i className='fas fa-venus-mars'></i>
+      </span>
+      <select
+        className='form-control'
+        id='sex'
+        value={formData.sex}
+        onChange={handleChange}
+        required
+      >
+        <option value='' hidden>
+          Sex
+        </option>
+        <option value='Male'>Male</option>
+        <option value='Female'>Female</option>
+      </select>
+    </div>
+
+    {/* Add Age Field */}
+    <div className='mb-3 input-group'>
+      <span className='input-group-text'>
+        <i className='fas fa-birthday-cake'></i>
+      </span>
+      <input
+        type='number'
+        className='form-control'
+        id='age'
+        placeholder='Age'
+        value={formData.age}
+        onChange={handleChange}
+        required
+      />
+    </div>
+
+    <div className='mb-3 input-group'>
+      <span className='input-group-text'>
+        <i className='fas fa-graduation-cap'></i>
+      </span>
+      <select
+        className='form-control'
+        id='strand'
+        value={formData.strand}
+        onChange={handleChange}
+        required
+      >
+        <option value='' hidden>
+          Strand
+        </option>
+        <option value='ABM'>ABM</option>
+        <option value='ARTSDESIGN'>ARTS&DESIGN</option>
+        <option value='STEM'>STEM</option>
+        <option value='HUMMS'>HUMMS</option>
+        <option value='TVL'>TVL</option>
+      </select>
+    </div>
+
+    <div className='mb-3 input-group'>
+      <span className='input-group-text'>
+        <i className='fas fa-level-up-alt'></i>
+      </span>
+      <select
+        className='form-control'
+        id='grade_level'
+        value={formData.grade_level}
+        onChange={handleChange}
+        required
+      >
+        <option value='' hidden>
+          Grade Level
+        </option>
+        <option value='11'>Grade 11</option>
+        <option value='12'>Grade 12</option>
+      </select>
+    </div>
+
+    <div className='d-flex justify-content-center w-100'>
+      <button type='submit' className='btn btn-primary'>
+        Register
+      </button>
+    </div>
+  </form>
+</Modal>
+
     </>
   );
 };

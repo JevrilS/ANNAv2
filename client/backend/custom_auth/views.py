@@ -31,6 +31,21 @@ import os
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def refresh_token(request):
+    try:
+        refresh_token = request.data.get('refresh')
+        if not refresh_token:
+            return Response({'error': 'Refresh token missing'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        refresh = RefreshToken(refresh_token)
+        new_access_token = refresh.access_token
+
+        return Response({'access': str(new_access_token)}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -39,7 +54,7 @@ def save_conversation(request):
         user_profile = request.user.profile
         data = json.loads(request.body)
 
-        # Update the user's RIASEC scores and recommendations
+        # Save RIASEC scores
         user_profile.realistic_score = data.get('realistic', user_profile.realistic_score)
         user_profile.investigative_score = data.get('investigative', user_profile.investigative_score)
         user_profile.artistic_score = data.get('artistic', user_profile.artistic_score)
@@ -47,15 +62,22 @@ def save_conversation(request):
         user_profile.enterprising_score = data.get('enterprising', user_profile.enterprising_score)
         user_profile.conventional_score = data.get('conventional', user_profile.conventional_score)
 
-        # Ensure the recommended courses are correctly passed and stored
+        # Save recommended courses
         recommended_courses = data.get('riasec_course_recommendation', [])
+        strand_courses = data.get('strand_course_recommendation', [])
         user_profile.recommended_courses = recommended_courses
+        user_profile.strand_courses = strand_courses
+
+        # Optionally, you can save a JSON field to store conversation history
+        conversation_history = data.get('conversation_history', [])
+        user_profile.conversation_history = json.dumps(conversation_history)  # If you have a conversation history field
 
         user_profile.save()
 
         return JsonResponse({'message': 'Conversation saved successfully!'}, status=status.HTTP_200_OK)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -205,7 +227,48 @@ def register(request):
 
     except Exception as e:
         return JsonResponse({'message': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_distinct_strands(request):
+    """
+    Retrieves distinct strands for the filter options.
+    """
+    try:
+        strands = Conversation.objects.values_list('strand', flat=True).distinct()
+        return JsonResponse(list(strands), safe=False)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_conversations(request):
+    try:
+        user_profile = request.user.profile
+        # Retrieve RIASEC scores and recommendations
+        riasec_scores = {
+            'realistic': user_profile.realistic_score,
+            'investigative': user_profile.investigative_score,
+            'artistic': user_profile.artistic_score,
+            'social': user_profile.social_score,
+            'enterprising': user_profile.enterprising_score,
+            'conventional': user_profile.conventional_score,
+        }
+
+        # Assuming `recommended_courses` and `strand_courses` are stored as lists or JSON fields
+        recommended_courses = user_profile.recommended_courses
+        strand_courses = user_profile.strand_courses
+
+        # You can also retrieve the conversation history if it's stored
+        conversation_history = json.loads(user_profile.conversation_history) if user_profile.conversation_history else []
+
+        return JsonResponse({
+            'riasec_scores': riasec_scores,
+            'recommended_courses': recommended_courses,
+            'strand_courses': strand_courses,
+            'conversation_history': conversation_history
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
@@ -307,42 +370,35 @@ def check_schema_view(request):
         cursor.execute("SELECT current_schema()")
         schema = cursor.fetchone()[0]
     return JsonResponse({'current_schema': schema})
-
-logger = logging.getLogger(__name__)
+from urllib.parse import urlparse
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def guidance_login_view(request):
     try:
-        data = request.data
-        email = data.get('email')
-        password = data.get('password')
+        # Extract just the hostname (without port)
+        domain_name = urlparse(f'//{request.get_host()}').hostname
+        logger.info(f'Requested domain: {domain_name}')
 
-        if not email or not password:
-            return Response({'message': 'Email and password are required'}, status=status.HTTP_400_BAD_REQUEST)
+        # Use the same query to get the schema_name based on the request domain
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT client.schema_name 
+                FROM custom_auth_domain domain
+                JOIN custom_auth_client client ON domain.tenant_id = client.id
+                WHERE domain.domain = %s AND domain.is_primary = true
+            """, [domain_name])
+            schema_name = cursor.fetchone()
 
-        logger.info(f'Attempting login with email: {email}')
-
-        # Use Django ORM to get the schema_name based on the request domain
-        domain_name = request.get_host()
-        try:
-            domain = Domain.objects.get(domain=domain_name)
-            schema_name = domain.tenant.schema_name
-        except Domain.DoesNotExist:
+        # Log the schema_name
+        if schema_name:
+            logger.info(f'Found schema: {schema_name[0]} for domain: {domain_name}')
+        else:
             logger.error(f'No tenant schema found for the request domain: {domain_name}')
             return Response({'message': 'Tenant not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Switch to the tenant's schema and authenticate the user
-        with schema_context(schema_name):
-            user = authenticate(request, username=email, password=password)
-
-            if user is not None and user.is_active:
-                login(request, user)
-                logger.info('Authentication successful')
-                return Response({'message': 'Login successful'}, status=status.HTTP_200_OK)
-            else:
-                logger.error('Authentication failed: Invalid credentials or inactive account')
-                return Response({'message': 'Invalid credentials or inactive account'}, status=status.HTTP_401_UNAUTHORIZED)
+        # Add a response to confirm the tenant and schema are correct
+        return Response({'message': f'Tenant and schema for domain {domain_name} are correct, schema: {schema_name[0]}'})
 
     except Exception as e:
         logger.error(f'Error during login: {str(e)}')
