@@ -12,7 +12,10 @@ from .views import (
     check_schema_view,
     guidance_login_view,
     get_conversations,        # Import the get_conversations view
-    get_distinct_strands,      # Import the get_distinct_strands view
+    get_distinct_strands, 
+    check_login_status,
+    check_terms_agreement,
+    agree_to_terms, # Import the get_distinct_strands view
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from custom_auth import views
@@ -33,4 +36,8 @@ urlpatterns = [
     path('save-conversation/', views.save_conversation, name='save_conversation'),
     path('get-conversations/', get_conversations, name='get-conversations'),  # New URL for fetching conversations
     path('courses-distinct-strand/', get_distinct_strands, name='courses-distinct-strand'),  # New URL for fetching distinct strands
+    path('check_login_status/', check_login_status, name='check_login_status'),  # Add check_login_status URL
+    path('api/check_terms_agreement/', check_terms_agreement, name='check_terms_agreement'),
+    path('api/agree_to_terms/', agree_to_terms, name='agree_to_terms'),
+
 ]

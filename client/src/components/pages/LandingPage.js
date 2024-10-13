@@ -51,7 +51,10 @@ const LandingPage = () => {
     { text: 'Learn RIASEC', link: '/#learn-riasec' },
     { text: 'Feedback', link: '/#feedback' },
   ];
-
+  useEffect(() => {
+    checkAuthStatus(); // Check if the user is authenticated when the component mounts
+  }, []);
+  
   const handleModalHide = () => {
     $('body').removeClass('modal-open');
     $('.modal-backdrop').remove();
@@ -169,10 +172,13 @@ const LandingPage = () => {
         console.log('Login Response Data:', response.data);
 
         if (response.status === 200 && response.data.access) {
-            setAuth(true);
-            localStorage.setItem('authToken', response.data.access); // Store access token
-            localStorage.setItem('refreshToken', response.data.refresh); // Store refresh token if provided
+            setAuth(true);  // Update authentication state to logged in
+            localStorage.setItem('authToken', response.data.access);  // Store access token for the main app
+            localStorage.setItem('token', response.data.access);      // Store access token for the chatbot
+            localStorage.setItem('refreshToken', response.data.refresh); // Store refresh token
+
             toast.success('Login successful!');
+            window.location.reload();  // Reload the window to trigger the chatbot refresh
         } else {
             toast.error('Login failed. Please check your credentials.');
         }
@@ -181,12 +187,14 @@ const LandingPage = () => {
         toast.error('Login failed. Please check your credentials.');
     }
 };
-
-  const handleLogout = () => {
-    localStorage.removeItem('authToken'); // Remove the token from localStorage
-    setAuth(false);
-    toast.success('Logged out successfully!');
-  };
+const handleLogout = () => {
+  localStorage.removeItem('authToken'); // Remove the main auth token
+  localStorage.removeItem('token');     // Remove the access token used by the chatbot
+  localStorage.removeItem('refreshToken'); // Remove the refresh token
+  setAuth(false);  // Set authentication state to logged out
+  toast.success('Logged out successfully!');
+  window.location.reload();  // Reload the window to trigger the chatbot refresh
+};
 
 
 const handleRegister = async (e) => {
@@ -202,6 +210,7 @@ const handleRegister = async (e) => {
       },
     });
     console.log(response.data);
+    
     if (response.status === 201) {
       toast.success('User registered successfully');
       setShowRegisterModal(false); // Close the registration modal
@@ -210,8 +219,41 @@ const handleRegister = async (e) => {
       toast.error(response.data.message);
     }
   } catch (error) {
-    console.error(error.response.data);
+    console.error('Registration Error:', error.response.data);
     toast.error(error.response.data.message);
+  }
+};
+
+const checkAuthStatus = async () => {
+  const token = localStorage.getItem('authToken'); // Get token from localStorage
+
+  if (token) {
+    try {
+      // Change this to the correct endpoint
+      const response = await api.get('/api/check_login_status/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      // If the token is valid, the user is logged in
+      if (response.status === 200) {
+        setAuth(true);
+      } else {
+        setAuth(false);
+        localStorage.removeItem('authToken'); // Remove invalid token
+        localStorage.removeItem('token');     // Remove chatbot token
+        localStorage.removeItem('refreshToken'); // Remove refresh token
+      }
+    } catch (err) {
+      console.error('Error checking auth status:', err);
+      setAuth(false); // Set as not authenticated if there's an error
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+    }
+  } else {
+    setAuth(false); // No token means not logged in
   }
 };
 

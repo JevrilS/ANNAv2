@@ -52,14 +52,30 @@ class MyUserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 class Conversation(models.Model):
+    # Basic information
     name = models.CharField(max_length=255)
     age = models.IntegerField()
     sex = models.CharField(max_length=20)
     strand = models.CharField(max_length=255)
+
+    # RIASEC scores
+    realistic_score = models.IntegerField(default=0)
+    investigative_score = models.IntegerField(default=0)
+    artistic_score = models.IntegerField(default=0)
+    social_score = models.IntegerField(default=0)
+    enterprising_score = models.IntegerField(default=0)
+    conventional_score = models.IntegerField(default=0)
+
+    # Store RIASEC code and recommendations as JSON fields
     riasec_code = models.JSONField()  # Store RIASEC code as JSON
     riasec_course_recommendation = models.JSONField()  # Store course recommendations as JSON
     strand_course_recommendation = models.JSONField()  # Store strand course recommendations as JSON
+
+    # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Conversation with {self.name} (RIASEC: {self.riasec_code})"
 
 
 # Ensure this model is recognized in the 'shared' apps or 'public' schema.
@@ -97,7 +113,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
     last_login = models.DateTimeField(auto_now=True)  # Add this line
-    user_type = models.CharField(max_length=10, choices=USER_TYPES, default='student')  # New field to distinguish user type
+    has_agreed_to_terms = models.BooleanField(default=False)
 
     objects = MyUserManager()
 
@@ -144,6 +160,7 @@ class UserProfile(models.Model):
     enterprising_score = models.IntegerField(default=0)
     conventional_score = models.IntegerField(default=0)
     recommended_courses = models.JSONField(null=True, blank=True)  # Use django.db.models.JSONField
+    has_agreed_to_terms = models.BooleanField(default=False)
 
     def __str__(self):
         return f'{self.user.full_name} Profile'

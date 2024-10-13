@@ -31,7 +31,22 @@ import os
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
+from .models import Conversation
+@login_required
+def check_terms_agreement(request):
+    # Get the user's profile and check if they have agreed to terms
+    profile = UserProfile.objects.get(user=request.user)
+    return JsonResponse({'has_agreed_to_terms': profile.has_agreed_to_terms})
 
+@login_required
+def agree_to_terms(request):
+    # Update the user's agreement status
+    if request.method == 'POST':
+        profile = UserProfile.objects.get(user=request.user)
+        profile.has_agreed_to_terms = True
+        profile.save()
+        return JsonResponse({'message': 'Terms agreement updated successfully'})
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def refresh_token(request):
@@ -46,38 +61,53 @@ def refresh_token(request):
         return Response({'access': str(new_access_token)}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def save_conversation(request):
     try:
-        user_profile = request.user.profile
         data = json.loads(request.body)
 
-        # Save RIASEC scores
-        user_profile.realistic_score = data.get('realistic', user_profile.realistic_score)
-        user_profile.investigative_score = data.get('investigative', user_profile.investigative_score)
-        user_profile.artistic_score = data.get('artistic', user_profile.artistic_score)
-        user_profile.social_score = data.get('social', user_profile.social_score)
-        user_profile.enterprising_score = data.get('enterprising', user_profile.enterprising_score)
-        user_profile.conventional_score = data.get('conventional', user_profile.conventional_score)
-
-        # Save recommended courses
-        recommended_courses = data.get('riasec_course_recommendation', [])
+        # Extract conversation details from the request data
+        name = data.get('name')
+        age = data.get('age')
+        sex = data.get('sex')
+        strand = data.get('strand')
+        riasec_code = data.get('riasec_code', [])
+        riasec_courses = data.get('riasec_course_recommendation', [])
         strand_courses = data.get('strand_course_recommendation', [])
-        user_profile.recommended_courses = recommended_courses
-        user_profile.strand_courses = strand_courses
+        realistic_score = data.get('realistic_score', 0)
+        investigative_score = data.get('investigative_score', 0)
+        artistic_score = data.get('artistic_score', 0)
+        social_score = data.get('social_score', 0)
+        enterprising_score = data.get('enterprising_score', 0)
+        conventional_score = data.get('conventional_score', 0)
 
-        # Optionally, you can save a JSON field to store conversation history
-        conversation_history = data.get('conversation_history', [])
-        user_profile.conversation_history = json.dumps(conversation_history)  # If you have a conversation history field
+        # Create a new conversation record and save to the Conversation model
+        conversation = Conversation.objects.create(
+            name=name,
+            age=age,
+            sex=sex,
+            strand=strand,
+            riasec_code=json.dumps(riasec_code),  # Store RIASEC code as JSON
+            riasec_course_recommendation=json.dumps(riasec_courses),  # Store RIASEC course recommendations as JSON
+            strand_course_recommendation=json.dumps(strand_courses),  # Store strand course recommendations as JSON
+            realistic_score=realistic_score,
+            investigative_score=investigative_score,
+            artistic_score=artistic_score,
+            social_score=social_score,
+            enterprising_score=enterprising_score,
+            conventional_score=conventional_score
+        )
 
-        user_profile.save()
+        # Save the conversation
+        conversation.save()
 
         return JsonResponse({'message': 'Conversation saved successfully!'}, status=status.HTTP_200_OK)
+
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
