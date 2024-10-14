@@ -233,13 +233,11 @@ const handleRegister = async (e) => {
     toast.error(error.response.data.message);
   }
 };
-
 const checkAuthStatus = async () => {
   const token = localStorage.getItem('authToken'); // Get token from localStorage
 
   if (token) {
     try {
-      // Change this to the correct endpoint
       const response = await api.get('/api/check_login_status/', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -250,22 +248,17 @@ const checkAuthStatus = async () => {
       if (response.status === 200) {
         setAuth(true);
       } else {
-        setAuth(false);
-        localStorage.removeItem('authToken'); // Remove invalid token
-        localStorage.removeItem('token');     // Remove chatbot token
-        localStorage.removeItem('refreshToken'); // Remove refresh token
+        handleLogout();  // Log out if token is invalid
       }
     } catch (err) {
       console.error('Error checking auth status:', err);
-      setAuth(false); // Set as not authenticated if there's an error
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
+      handleLogout();  // Log out and clear tokens on error
     }
   } else {
     setAuth(false); // No token means not logged in
   }
 };
+
 
   const getCookie = (name) => {
     let cookieValue = null;

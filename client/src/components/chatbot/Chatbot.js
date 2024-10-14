@@ -411,9 +411,11 @@ const Chatbot = () => {
                       }
   
                       if (msg.payload.fields.strand_recommended_courses) {
-                          const recommendedCourses = msg.payload.fields.strand_recommended_courses.listValue.values;
-                          setStrandBasedRecommendedCourses(recommendedCourses.map(course => course.stringValue));
-                      }
+                        const recommendedCourses = msg.payload.fields.strand_recommended_courses.listValue.values;
+                        console.log('Courses received:', recommendedCourses);  // Add this line to log the courses received
+                        setStrandBasedRecommendedCourses(recommendedCourses.map(course => course.stringValue));
+                    }
+                    
   
                       if (msg.payload.fields.end_conversation) {
                           savedConversation(user, riasecCode, riasecBasedRecommendedCourses, strandBasedRecommendedCourses);
