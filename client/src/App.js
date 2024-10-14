@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ToastContainer, Flip } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import AccountDetails from './components/pages/AccountDetails';
+import Results from './components/pages/Results'; // Import the Results page
 import { useEffect, useState, useRef } from 'react';
 import { ChatbotContext } from './context/ChatbotContext';
 import { UserContext } from './context/UserContext';
@@ -80,6 +81,7 @@ function App() {
                   </Route>
                   <Route path='/admin/login' element={!isAuthenticated ? <AdminLogin /> : <Navigate replace to='/admin/dashboard' />} />
                   <Route path='/account' element={<AccountDetails />} />
+                  <Route path='/result' element={<Results />} /> {/* Route for Results page */}
                   <Route path='*' element={<PageNotFound />} />
                </Routes>
             </Router>

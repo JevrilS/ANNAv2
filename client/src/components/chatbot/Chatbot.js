@@ -52,13 +52,13 @@ const Chatbot = () => {
 
    const messagesRef = useRef(null);
    const [courseOptionsTimer, setCourseOptionsTimer] = useState('');
-   const [user, setUser] = useState({ name: '', age: '', sex: '', strand: '' });
+   const [user, setUser] = useState({ name: '', age: '', sex: '', strand: '', tvl_substrand: '' });
    const [riasec, setRiasec] = useState({ realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 });
    const [riasecCode, setRiasecCode] = useState([]);
    const [fallbackCount, setFallbackCount] = useState({});
    const [endConversation, setEndConversation] = useState(false); // state for purposely ending the conversation
    const [isBasicInfoProvided, setIsBasicInfoProvided] = useState(false);  // New state to check if basic info is provided
-
+   const [testStarted, setTestStarted] = useState(false); 
    // recommeded courses
    const [knownCourses, setKnownCourses] = useState([]);
    const [riasecBasedRecommendedCourses, setRiasecBasedRecommendedCourses] = useState([]);
@@ -70,86 +70,98 @@ const Chatbot = () => {
    const [isLoggedIn, setIsLoggedIn] = useState(false);
 
    const fetchUserInfo = async () => {
-      try {
-          const accessToken = localStorage.getItem('token');  // Access token from localStorage
-          const refreshToken = localStorage.getItem('refreshToken');  // Refresh token
-  
-          let response = await fetch('http://localhost:8000/api/check_login_status/', {
-              method: 'GET',
-              headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${accessToken}`,  // Send access token
-              },
-          });
-  
-          if (response.status === 401) {
-              // If access token is expired, refresh it using refreshToken
-              const refreshResponse = await fetch('http://localhost:8000/api/token/refresh/', {
-                  method: 'POST',
-                  headers: {
-                      'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({ refresh: refreshToken }),
-              });
-  
-              const refreshData = await refreshResponse.json();
-              if (refreshResponse.status === 200) {
-                  // Save new access token and retry the original request
-                  localStorage.setItem('token', refreshData.access);
-                  response = await fetch('http://localhost:8000/api/check_login_status/', {
-                      method: 'GET',
-                      headers: {
-                          'Content-Type': 'application/json',
-                          'Authorization': `Bearer ${refreshData.access}`,
-                      },
-                  });
-              }
-          }
-  
-          const data = await response.json();
-          if (data.is_logged_in && data.user_data) {
-              // Set user data for logged-in users
-              setUser({
-                  name: data.user_data.name,
-                  age: data.user_data.age,
-                  sex: data.user_data.sex,
-                  strand: data.user_data.strand,
-              });
-              setIsBasicInfoProvided(true);  // Set basic info as provided
-              setIsLoggedIn(true);  // Mark user as logged in
-  
-              // Send a welcome message
-              const welcomeMessage = {
-                  speaks: 'bot',
-                  msg: {
-                      text: {
-                          text: `Hello ${data.user_data.name}! Welcome back. Let's get started with your RIASEC test.`,
-                      },
-                  },
-              };
-              setMessages(prev => [...prev, welcomeMessage]);
-  
-              // Log before triggering RIASEC_START event
-              console.log("Triggering RIASEC_START event for Dialogflow");
-  
-              // Trigger RIASEC test directly for logged-in users
-              await df_event_query('RIASEC_START');
-          } else {
-              // Non-logged-in users, skip to basic info collection
-              setIsBasicInfoProvided(false);
-              setIsLoggedIn(false);
-          }
-      } catch (error) {
-          console.error('Error fetching user info:', error);
-          setIsLoggedIn(false);  // Handle error by marking the user as not logged in
-      }
-  };
-  
+     try {
+       const accessToken = localStorage.getItem('token'); // Get access token from localStorage
+       const refreshToken = localStorage.getItem('refreshToken'); // Get refresh token from localStorage
    
-      // Call fetchUserInfo when the component mounts
-      useEffect(() => {
-         fetchUserInfo();  // Fetch user information on load
-      }, []);  // Only run once, when component is mounted
+       // If no access token, mark as logged out
+       if (!accessToken) {
+         setIsLoggedIn(false);
+         setUser(null); // Clear any user data in chatbot context
+         return;
+       }
+   
+       // Function to make the check_login_status request
+       const checkLoginStatus = async (token) => {
+         const response = await fetch('http://localhost:8000/api/check_login_status/', {
+           method: 'GET',
+           headers: {
+             'Content-Type': 'application/json',
+             'Authorization': `Bearer ${token}`, // Send the token in the Authorization header
+           },
+         });
+         return response;
+       };
+   
+       // Initial request to check login status using access token
+       let response = await checkLoginStatus(accessToken);
+   
+       // If token is expired (401), refresh the token
+       if (response.status === 401 && refreshToken) {
+         const refreshResponse = await fetch('http://localhost:8000/api/token/refresh/', {
+           method: 'POST',
+           headers: {
+             'Content-Type': 'application/json',
+           },
+           body: JSON.stringify({ refresh: refreshToken }), // Send refresh token to get a new access token
+         });
+   
+         const refreshData = await refreshResponse.json();
+         if (refreshResponse.status === 200) {
+           // Save the new access token and retry the original request
+           localStorage.setItem('token', refreshData.access);
+           response = await checkLoginStatus(refreshData.access);
+         } else {
+           // If refresh token is invalid or expired, treat as logged out
+           setIsLoggedIn(false);
+           setUser(null); // Clear user data
+           return;
+         }
+       }
+   
+       // Process the login status response
+       const data = await response.json();
+       if (response.status === 200 && data.is_logged_in && data.user_data) {
+         // If user is logged in, set user data
+         setUser({
+           name: data.user_data.name,
+           age: data.user_data.age,
+           sex: data.user_data.sex,
+           strand: data.user_data.strand,
+         });
+         setIsLoggedIn(true); // Mark user as logged in
+         setIsBasicInfoProvided(true); // Set basic info as provided
+   
+         // Send a welcome message
+         const welcomeMessage = {
+           speaks: 'bot',
+           msg: {
+             text: {
+               text: `Hello ${data.user_data.name}! Welcome back. Let's get started with your RIASEC test.`,
+             },
+           },
+         };
+         setMessages(prev => [...prev, welcomeMessage]);
+   
+         // Trigger RIASEC test directly for logged-in users
+         await df_event_query('RIASEC_START');
+       } else {
+         // If user is not logged in, reset the state
+         setIsLoggedIn(false);
+         setUser(null); // Clear user data
+         setIsBasicInfoProvided(false);
+       }
+     } catch (error) {
+       console.error('Error fetching user info:', error);
+       setIsLoggedIn(false); // Mark as logged out in case of any error
+       setUser(null); // Clear user data in chatbot context
+     }
+   };
+   
+   // Call fetchUserInfo when the component mounts
+   useEffect(() => {
+     fetchUserInfo(); // Fetch user information on load
+   }, []); // Only run once, when the component is mounted
    
    const df_text_query = async (text, parameters) => {
       let userSays = {
@@ -303,6 +315,11 @@ const Chatbot = () => {
               userId: cookies.get('userId'),
               parameters
           };
+  
+          // Log the strand being queried
+          if (parameters && parameters.strand) {
+              console.log("Strand being queried:", parameters.strand);
+          }
   
           console.log('Sending event to Dialogflow:', body); // Log the request body being sent to Dialogflow
   

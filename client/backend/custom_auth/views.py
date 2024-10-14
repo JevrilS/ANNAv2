@@ -84,8 +84,9 @@ def save_conversation(request):
         enterprising_score = data.get('enterprising_score', 0)
         conventional_score = data.get('conventional_score', 0)
 
-        # Create a new conversation record and save to the Conversation model
+        # Create a new conversation record, associate it with the authenticated user, and save to the Conversation model
         conversation = Conversation.objects.create(
+            user=request.user,  # Associate with the authenticated user
             name=name,
             age=age,
             sex=sex,
@@ -108,6 +109,7 @@ def save_conversation(request):
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -273,32 +275,36 @@ def get_distinct_strands(request):
 @permission_classes([IsAuthenticated])
 def get_conversations(request):
     try:
-        user_profile = request.user.profile
-        # Retrieve RIASEC scores and recommendations
-        riasec_scores = {
-            'realistic': user_profile.realistic_score,
-            'investigative': user_profile.investigative_score,
-            'artistic': user_profile.artistic_score,
-            'social': user_profile.social_score,
-            'enterprising': user_profile.enterprising_score,
-            'conventional': user_profile.conventional_score,
-        }
+        # Retrieve all conversations for the authenticated user
+        conversations = Conversation.objects.filter(user=request.user)
+        
+        # Prepare a list of conversations to return as JSON
+        conversations_data = []
+        for conversation in conversations:
+            conversations_data.append({
+                'name': conversation.name,
+                'age': conversation.age,
+                'sex': conversation.sex,
+                'strand': conversation.strand,
+                'riasec_code': json.loads(conversation.riasec_code),  # Parse JSON field
+                'riasec_course_recommendation': json.loads(conversation.riasec_course_recommendation),  # Parse JSON field
+                'strand_course_recommendation': json.loads(conversation.strand_course_recommendation),  # Parse JSON field
+                'realistic_score': conversation.realistic_score,
+                'investigative_score': conversation.investigative_score,
+                'artistic_score': conversation.artistic_score,
+                'social_score': conversation.social_score,
+                'enterprising_score': conversation.enterprising_score,
+                'conventional_score': conversation.conventional_score,
+            })
 
-        # Assuming `recommended_courses` and `strand_courses` are stored as lists or JSON fields
-        recommended_courses = user_profile.recommended_courses
-        strand_courses = user_profile.strand_courses
-
-        # You can also retrieve the conversation history if it's stored
-        conversation_history = json.loads(user_profile.conversation_history) if user_profile.conversation_history else []
-
+        # Return the conversation data as JSON
         return JsonResponse({
-            'riasec_scores': riasec_scores,
-            'recommended_courses': recommended_courses,
-            'strand_courses': strand_courses,
-            'conversation_history': conversation_history
+            'conversations': conversations_data
         }, status=status.HTTP_200_OK)
+
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]

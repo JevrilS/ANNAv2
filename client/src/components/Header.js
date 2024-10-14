@@ -67,7 +67,7 @@ const Header = ({ navlinks, auth, handleLogout }) => {
                 </a>
                 <ul className='dropdown-menu dropdown-menu-end' aria-labelledby='navbarDropdown'>
                   <li><Link className='dropdown-item' to='/account'>Account</Link></li>
-                  <li><Link className='dropdown-item' to='/result'>Result</Link></li>
+                  <li><Link className='dropdown-item' to='/result'>Results</Link></li>
                   <li><button className='dropdown-item' onClick={handleLogout}>Logout</button></li>
                 </ul>
               </li>

@@ -55,27 +55,30 @@ module.exports = {
   eventQuery: async (event, userId, parameters = {}) => {
     const sessionPath = sessionClient.projectAgentSessionPath(projectId, sessionId + userId);
     const self = module.exports;
-
+ 
     const request = {
-      session: sessionPath,
-      queryInput: {
-        event: {
-          name: event,
-          parameters: structjson.jsonToStructProto(parameters),
-          languageCode,
-        },
-      },
+       session: sessionPath,
+       queryInput: {
+          event: {
+             name: event,
+             parameters: structjson.jsonToStructProto(parameters),
+             languageCode,
+          },
+       },
     };
-
+ 
+    console.log("Event being sent:", event);  // Log the event name
+    console.log("Parameters being sent:", parameters);  // Log the parameters (like strand)
+ 
     try {
-      let responses = await sessionClient.detectIntent(request);
-      responses = await self.handleAction(responses);
-      return responses;
+       let responses = await sessionClient.detectIntent(request);
+       responses = await self.handleAction(responses);
+       return responses;
     } catch (err) {
-      console.error('Dialogflow Error:', err);
+       console.error('Dialogflow Error:', err);
     }
-  },
-
+ },
+ 
   handleAction: (responses) => {
     // Temporary function to handle actions
     return responses;

@@ -22,6 +22,7 @@ window.jQuery = $;
 const LandingPage = () => {
   const [auth, setAuth] = useState(false); // Add state for authentication
   const { setShowbot } = useContext(ChatbotContext);
+  const [showTvlSubstrand, setShowTvlSubstrand] = useState(false);
 
   const [formData, setFormData] = useState({
     id_no: '',
@@ -45,7 +46,7 @@ const LandingPage = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [schools, setSchools] = useState([]);
-
+  const {setUser } = useContext(ChatbotContext); 
   const navlinks = [
     { text: 'Home', link: '/#home' },
     { text: 'Learn RIASEC', link: '/#learn-riasec' },
@@ -188,14 +189,23 @@ const LandingPage = () => {
     }
 };
 const handleLogout = () => {
-  localStorage.removeItem('authToken'); // Remove the main auth token
-  localStorage.removeItem('token');     // Remove the access token used by the chatbot
-  localStorage.removeItem('refreshToken'); // Remove the refresh token
-  setAuth(false);  // Set authentication state to logged out
-  toast.success('Logged out successfully!');
-  window.location.reload();  // Reload the window to trigger the chatbot refresh
-};
+  // Remove tokens from localStorage
+  localStorage.removeItem('authToken');  // Main auth token
+  localStorage.removeItem('token');      // Chatbot access token
+  localStorage.removeItem('refreshToken');  // Refresh token
+  
+  // Reset authentication and chatbot states
+  setAuth(false);        // Set authentication state to logged out
+  setShowbot(false);     // Hide chatbot after logout
+  
+  // Safely check if setUser is available before calling it
+  if (typeof setUser === 'function') {
+    setUser(null);      // Clear user data in chatbot context, if applicable
+  }
 
+  toast.success('Logged out successfully!');
+  window.location.reload();  // Reload the window to apply changes
+};
 
 const handleRegister = async (e) => {
   e.preventDefault();
@@ -516,105 +526,105 @@ const checkAuthStatus = async () => {
     </Modal>
 
     <Modal
-  title='Register'
-  target='modal-register'
-  size='modal-md'
+  title="Register"
+  target="modal-register"
+  size="modal-md"
   show={showRegisterModal}
   onHide={() => setShowRegisterModal(false)}
-  dialogClassName='modal-dialog-centered register-modal' // Apply custom class for styling
+  dialogClassName="modal-dialog-centered register-modal" // Apply custom class for styling
 >
-  <form onSubmit={handleRegister} className='register-form'>
-    <div className='d-flex flex-column align-items-center'>
-      <h2 className='mb-3 modal-title'>Register</h2>
+  <form onSubmit={handleRegister} className="register-form">
+    <div className="d-flex flex-column align-items-center">
+      <h2 className="mb-3 modal-title">Register</h2>
     </div>
 
-    <div className='mb-3 input-group'>
-      <span className='input-group-text'>
-        <i className='fas fa-id-card'></i>
+    <div className="mb-3 input-group">
+      <span className="input-group-text">
+        <i className="fas fa-id-card"></i>
       </span>
       <input
-        type='text'
-        className='form-control'
-        id='id_no'
-        placeholder='ID No.'
+        type="text"
+        className="form-control"
+        id="id_no"
+        placeholder="ID No."
         value={formData.id_no}
         onChange={handleChange}
         required
       />
     </div>
 
-    <div className='mb-3 input-group'>
-      <span className='input-group-text'>
-        <i className='fas fa-user'></i>
+    <div className="mb-3 input-group">
+      <span className="input-group-text">
+        <i className="fas fa-user"></i>
       </span>
       <input
-        type='text'
-        className='form-control'
-        id='full_name'
-        placeholder='Full Name'
+        type="text"
+        className="form-control"
+        id="full_name"
+        placeholder="Full Name"
         value={formData.full_name}
         onChange={handleChange}
         required
       />
     </div>
 
-    <div className='mb-3 input-group'>
-      <span className='input-group-text'>
-        <i className='fas fa-envelope'></i>
+    <div className="mb-3 input-group">
+      <span className="input-group-text">
+        <i className="fas fa-envelope"></i>
       </span>
       <input
-        type='email'
-        className='form-control'
-        id='email'
-        placeholder='Email'
+        type="email"
+        className="form-control"
+        id="email"
+        placeholder="Email"
         value={formData.email}
         onChange={handleChange}
         required
       />
     </div>
 
-    <div className='mb-3 input-group'>
-      <span className='input-group-text'>
-        <i className='fas fa-key'></i>
+    <div className="mb-3 input-group">
+      <span className="input-group-text">
+        <i className="fas fa-key"></i>
       </span>
       <input
-        type='password'
-        className='form-control'
-        id='password'
-        placeholder='Password'
+        type="password"
+        className="form-control"
+        id="password"
+        placeholder="Password"
         value={formData.password}
         onChange={handleChange}
         required
       />
     </div>
 
-    <div className='mb-3 input-group'>
-      <span className='input-group-text'>
-        <i className='fas fa-key'></i>
+    <div className="mb-3 input-group">
+      <span className="input-group-text">
+        <i className="fas fa-key"></i>
       </span>
       <input
-        type='password'
-        className='form-control'
-        id='confirm_password'
-        placeholder='Confirm Password'
+        type="password"
+        className="form-control"
+        id="confirm_password"
+        placeholder="Confirm Password"
         value={formData.confirm_password}
         onChange={handleChange}
         required
       />
     </div>
 
-    <div className='mb-3 input-group'>
-      <span className='input-group-text'>
-        <i className='fas fa-school'></i>
+    <div className="mb-3 input-group">
+      <span className="input-group-text">
+        <i className="fas fa-school"></i>
       </span>
       <select
-        className='form-control'
-        id='school_id'
+        className="form-control"
+        id="school_id"
         value={formData.school_id}
         onChange={handleChange}
         required
       >
-        <option value='' hidden>
+        <option value="" hidden>
           Select School
         </option>
         {schools.map((school) => (
@@ -625,99 +635,104 @@ const checkAuthStatus = async () => {
       </select>
     </div>
 
-    <div className='mb-3 input-group'>
-      <span className='input-group-text'>
-        <i className='fas fa-phone'></i>
+    <div className="mb-3 input-group">
+      <span className="input-group-text">
+        <i className="fas fa-phone"></i>
       </span>
       <input
-        type='text'
-        className='form-control'
-        id='mobile_no'
-        placeholder='Mobile No.'
+        type="text"
+        className="form-control"
+        id="mobile_no"
+        placeholder="Mobile No."
         value={formData.mobile_no}
         onChange={handleChange}
         required
       />
     </div>
 
-    <div className='mb-3 input-group'>
-      <span className='input-group-text'>
-        <i className='fas fa-venus-mars'></i>
+    <div className="mb-3 input-group">
+      <span className="input-group-text">
+        <i className="fas fa-venus-mars"></i>
       </span>
       <select
-        className='form-control'
-        id='sex'
+        className="form-control"
+        id="sex"
         value={formData.sex}
         onChange={handleChange}
         required
       >
-        <option value='' hidden>
+        <option value="" hidden>
           Sex
         </option>
-        <option value='Male'>Male</option>
-        <option value='Female'>Female</option>
+        <option value="Male">Male</option>
+        <option value="Female">Female</option>
       </select>
     </div>
 
     {/* Add Age Field */}
-    <div className='mb-3 input-group'>
-      <span className='input-group-text'>
-        <i className='fas fa-birthday-cake'></i>
+    <div className="mb-3 input-group">
+      <span className="input-group-text">
+        <i className="fas fa-birthday-cake"></i>
       </span>
       <input
-        type='number'
-        className='form-control'
-        id='age'
-        placeholder='Age'
+        type="number"
+        className="form-control"
+        id="age"
+        placeholder="Age"
         value={formData.age}
         onChange={handleChange}
         required
       />
     </div>
 
-    <div className='mb-3 input-group'>
-      <span className='input-group-text'>
-        <i className='fas fa-graduation-cap'></i>
+    <div className="mb-3 input-group">
+      <span className="input-group-text">
+        <i className="fas fa-graduation-cap"></i>
       </span>
       <select
-        className='form-control'
-        id='strand'
+        className="form-control"
+        id="strand"
         value={formData.strand}
         onChange={handleChange}
         required
       >
-        <option value='' hidden>
+        <option value="" hidden>
           Strand
         </option>
-        <option value='ABM'>ABM</option>
-        <option value='ARTSDESIGN'>ARTS&DESIGN</option>
-        <option value='STEM'>STEM</option>
-        <option value='HUMMS'>HUMMS</option>
-        <option value='TVL'>TVL</option>
+        <option value="ABM">ABM</option>
+        <option value="ARTSDESIGN">ARTS&DESIGN</option>
+        <option value="STEM">STEM</option>
+        <option value="HUMMS">HUMMS</option>
+        <option value="TVL - Information and Communications Technology">
+        TVL - Information and Communications Technology
+        </option>
+        <option value="TVL - Home Economics">TVL - Home Economics</option>
+        <option value="TVL - Agri-Fishery Arts">TVL - Agri-Fishery Arts</option>
+        <option value="TVL - Industrial Arts">TVL - Industrial Arts</option>
       </select>
     </div>
 
-    <div className='mb-3 input-group'>
-      <span className='input-group-text'>
-        <i className='fas fa-level-up-alt'></i>
+    <div className="mb-3 input-group">
+      <span className="input-group-text">
+        <i className="fas fa-level-up-alt"></i>
       </span>
       <select
-        className='form-control'
-        id='grade_level'
+        className="form-control"
+        id="grade_level"
         value={formData.grade_level}
         onChange={handleChange}
         required
       >
-        <option value='' hidden>
+        <option value="" hidden>
           Grade Level
         </option>
-        <option value='11'>Grade 11</option>
-        <option value='12'>Grade 12</option>
+        <option value="11">Grade 11</option>
+        <option value="12">Grade 12</option>
       </select>
     </div>
 
-    <div className='d-flex justify-content-center w-100'>
-      <button type='submit' className='btn btn-primary'>
+    <div className="d-flex justify-content-center w-100">
+      <button type="submit" className="btn btn-primary">
         Register
       </button>
     </div>
