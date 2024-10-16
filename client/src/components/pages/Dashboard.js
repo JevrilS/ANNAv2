@@ -1,628 +1,590 @@
-import { useState } from 'react';
-import { toast } from 'react-toastify';
-import { useEffect, useRef } from 'react';
-import { MdFilterAlt, MdDownload } from 'react-icons/md';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
-import randomColor from 'randomcolor';
-import { useNavigate } from 'react-router-dom';  // <-- Import useNavigate
+import React, { useEffect, useState, useRef } from 'react';
+import { Container, Row, Col, Form, Button, Nav, Navbar } from 'react-bootstrap';
+import { Bar } from 'react-chartjs-2';
+import { Chart as ChartJS } from 'chart.js/auto';
+import FileSaver from 'file-saver';
+import { CSVLink } from 'react-csv';
+import html2canvas from 'html2canvas';
+import { useNavigate } from 'react-router-dom';
+import { FaHome, FaCommentDots, FaClipboardList } from 'react-icons/fa';  // Import icons
 
-import BarChart from '../BarChart';
-// import ContentNavbar from './ContentNavbar';//
-import '../../styles/charts.css';
+// Token refresh function
+const refreshAccessToken = async (navigate) => {
+  try {
+    const response = await fetch('/token/refresh/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refresh: localStorage.getItem('refreshToken') }),
+    });
+
+    const data = await response.json();
+    if (response.ok) {
+      localStorage.setItem('token', data.access);
+      return data.access;
+    } else {
+      console.error('Refresh token invalid or expired:', data);
+      navigate('/admin/login');
+    }
+  } catch (err) {
+    console.error('Error refreshing access token:', err);
+    navigate('/admin/login');
+  }
+};
 
 const Dashboard = () => {
-   const navigate = useNavigate();  // <-- Call useNavigate
+  const [dashboardData, setDashboardData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    gradeLevel: 'Overall',
+    strand: 'Overall',
+    schoolYear: '2023-2024',
+  });
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-   const isMounted = useRef(false);
-   const initialRender = useRef(false);
+  // Function to toggle sidebar state
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
 
-   const [conversations, setConversations] = useState([]);
-   const [conversationsPerStrand, setConversationsPerStrand] = useState([]);
-   const [strandOptions, setStrandOptions] = useState([]);
-   const [studentByHighestRiasec, setStudentByHighestRiasec] = useState({
+  const navigate = useNavigate();
+  const chartRef = useRef(null);
+
+  // Fetch data from backend API with token handling
+  const fetchData = async () => {
+    try {
+      let accessToken = localStorage.getItem('token');
+      const response = await fetch('/api/dashboard/', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (response.status === 401) {
+        accessToken = await refreshAccessToken(navigate);
+        if (accessToken) {
+          const retryResponse = await fetch('/api/dashboard/', {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
+          const retryData = await retryResponse.json();
+          setDashboardData(retryData);
+        }
+      } else {
+        const data = await response.json();
+        setDashboardData(data);
+      }
+      setIsLoading(false);
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      navigate('/admin/login');
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  // Filter handling
+  const handleFilterChange = (event) => {
+    setFilters({
+      ...filters,
+      [event.target.name]: event.target.value,
+    });
+  };
+
+  const getFilteredData = () => {
+    let filteredData = dashboardData;
+
+    if (filters.gradeLevel !== 'Overall') {
+      filteredData = filteredData.filter((d) => d.grade_level === filters.gradeLevel);
+    }
+
+    if (filters.strand !== 'Overall') {
+      filteredData = filteredData.filter((d) => d.strand === filters.strand);
+    }
+
+    return filteredData;
+  };
+
+  // Prepare chart data
+  const getRiasecChartData = () => {
+    const filteredData = getFilteredData();
+  
+    const totalScores = {
       realistic: 0,
       investigative: 0,
       artistic: 0,
       social: 0,
       enterprising: 0,
       conventional: 0,
-   });
-   const [studentByHighestRiasecPerStrand, setStudentByHighestRiasecPerStrand] = useState({
-      realistic: {},
-      investigative: {},
-      artistic: {},
-      social: {},
-      enterprising: {},
-      conventional: {},
-   });
-   const [strandBarColors, setStrandBarColors] = useState([
-      '#ea7070',
-      '#fdc4b6',
-      '#e59572',
-      '#fff591',
-      '#2694ab',
-      '#f9bcdd',
-      '#587058',
-      '#A3CD39',
-      '#E5446D',
-      '#29aba4',
-   ]);
-   const [studentBySex, setStudentBySex] = useState({ male: 0, female: 0 });
-   const [studentBySexPerStrand, setStudentBySexPerStrand] = useState({ male: {}, female: {} });
-   const [studentByStrand, setStudentByStrand] = useState({});
-
-   const [isLoading, setisLoading] = useState(false);
-   const [isOverAll, setIsOverAll] = useState(true);
-
-   const [recommendedCourses, setRecommendedCourses] = useState([]);
-   const [strandCourses, setStrandCourses] = useState([]);
-
-   const [inputs, setInputs] = useState({ strand: 'all' });
-   const { strand } = inputs;
-
-   const [schoolYearStart, setSchoolYearStart] = useState(null);
-   const [isFilterBySchoolYear, setIsFilterBySchoolYear] = useState(false);
-
-   const studentByHighestRiasecChartRef = useRef(null);
-   const studentBySexChartRef = useRef(null);
-   const studentByStrandChartRef = useRef(null);
-
-   const [chartsInfo, setChartsInfo] = useState({
-      studentByHighestRiasecChart: { filename: 'Number of Students by Strongest RIASEC Area - Overall' },
-      studentBySexChart: { filename: 'Number of Students by Sex - Overall' },
-      studentByStrandChart: { filename: 'Number of Students by Strand' },
-   });
-
-   const fetchAllConversations = async () => {
-      try {
-          setisLoading(true);
-          const response = await fetch('/api/get-conversations', {
-              headers: { token: localStorage.getItem('token') },  // JWT auth header
-          });
-          const data = await response.json();
+    };
   
-          if (response.status === 200) {
-              // Set RIASEC scores, recommended courses, and conversation history in the state
-              setStudentByHighestRiasec(data.riasec_scores);
-              setRecommendedCourses(data.recommended_courses); // assuming you want to display this
-              setStrandCourses(data.strand_courses); // assuming you want to display this
-              setConversations(data.conversation_history); // for conversation history if you need to display it
-              setisLoading(false);
-          } else {
-              toast.error(data.message);
-              setisLoading(false);
-          }
-      } catch (err) {
-          console.error('Error fetching conversations:', err.message);
-          setisLoading(false);
+    const strandScores = {
+      ABM: { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
+      ARTSDESIGN: { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
+      STEM: { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
+      HUMMS: { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
+      'TVL - Information and Communications Technology': { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
+      'TVL - Home Economics': { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
+      'TVL - Agri-Fishery Arts': { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
+      'TVL - Industrial Arts': { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
+    };
+  
+    filteredData.forEach((conversation) => {
+      totalScores.realistic += conversation.realistic_score;
+      totalScores.investigative += conversation.investigative_score;
+      totalScores.artistic += conversation.artistic_score;
+      totalScores.social += conversation.social_score;
+      totalScores.enterprising += conversation.enterprising_score;
+      totalScores.conventional += conversation.conventional_score;
+  
+      // Update the respective strand scores
+      if (conversation.strand in strandScores) {
+        strandScores[conversation.strand].realistic += conversation.realistic_score;
+        strandScores[conversation.strand].investigative += conversation.investigative_score;
+        strandScores[conversation.strand].artistic += conversation.artistic_score;
+        strandScores[conversation.strand].social += conversation.social_score;
+        strandScores[conversation.strand].enterprising += conversation.enterprising_score;
+        strandScores[conversation.strand].conventional += conversation.conventional_score;
       }
-  };
-
-   const fetchConversationsByStrand = async strand => {
-      setStudentBySex({ male: 0, female: 0 });
-      setStudentByHighestRiasec({
-         realistic: 0,
-         investigative: 0,
-         artistic: 0,
-         social: 0,
-         enterprising: 0,
-         conventional: 0,
-      });
-
-      // convert array distict strand to object assign value to 0(zero), lowercase its property name, remove space and charater that is not letter
-      const value = strandOptions.reduce(
-         (a, v) => ({
-            ...a,
-            [v
-               .toLowerCase()
-               .replaceAll(' ', '')
-               .replaceAll(/[^a-zA-Z ]/g, '')]: 0,
-         }),
-         {}
-      );
-
-      // reset the value
-      setStudentByHighestRiasecPerStrand({
-         realistic: value,
-         investigative: value,
-         artistic: value,
-         social: value,
-         enterprising: value,
-         conventional: value,
-      });
-      setStudentBySexPerStrand({ male: value, female: value });
-
-      try {
-         setisLoading(true);
-         const response = await fetch(`/admin/conversations?strand=${strand}&year=${schoolYearStart ? schoolYearStart.getFullYear() : ''}`, {
-            headers: { token: localStorage.getItem('token') },
-         });
-         const data = await response.json();
-
-         if (isMounted.current && response.status === 200) {
-            setConversations(data.conversations);
-            setisLoading(false);
-         } else toast.error(data.message);
-      } catch (err) {
-         console.log(err.message);
-      }
-   };
-
-   const fetchDistinctStrand = async () => {
-      try {
-          const accessToken = localStorage.getItem('access');
-          const refreshToken = localStorage.getItem('refresh');
+    });
   
-          if (!accessToken) {
-              toast.error('No access token found, please login again');
-              navigate('/login');
-              return;
-          }
-  
-          let response = await fetch('/courses-distinct-strand', {
-              method: 'GET',
-              headers: {
-                  'Authorization': `Bearer ${accessToken}`,
-                  'Content-Type': 'application/json',
-              },
-          });
-  
-          if (response.status === 401) {
-              // Try to refresh token
-              const refreshResponse = await fetch('/api/token/refresh/', {
-                  method: 'POST',
-                  headers: {
-                      'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({ refresh: refreshToken }),
-              });
-  
-              if (refreshResponse.status === 200) {
-                  const refreshData = await refreshResponse.json();
-                  localStorage.setItem('access', refreshData.access);
-  
-                  // Retry the original request
-                  response = await fetch('/courses-distinct-strand', {
-                      method: 'GET',
-                      headers: {
-                          'Authorization': `Bearer ${refreshData.access}`,
-                          'Content-Type': 'application/json',
-                      },
-                  });
-  
-                  if (response.status !== 200) {
-                      toast.error('Failed to fetch strands after token refresh');
-                  } else {
-                      const data = await response.json();
-                      setStrandOptions(data);
-                  }
-              } else {
-                  toast.error('Session expired, please login again');
-                  navigate('/login');
-              }
-          } else if (response.status === 200) {
-              const data = await response.json();
-              setStrandOptions(data);
-          } else {
-              toast.error('Failed to fetch strands');
-          }
-      } catch (err) {
-          console.error('Error fetching strands:', err.message);
-          toast.error('An error occurred while fetching strands');
-      }
-  };
-  
-  
-   const getOptions = titleText => {
-      return {
-         responsive: true,
-         plugins: {
-            legend: {
-               display: true,
-               position: 'bottom',
-               ...(!isOverAll && {
-                  onClick: (e, legendItem, legend) => {
-                     const index = legend.chart.data.labels.indexOf(legendItem.text);
-                     legend.chart.toggleDataVisibility(index);
-                     legend.chart.update();
-                  },
-                  labels: {
-                     generateLabels: chart => {
-                        const visibility = [];
-                        for (let i = 0; i < chart.data.labels.length; i++) {
-                           if (chart.getDataVisibility(i) === true) visibility.push(false);
-                           else visibility.push(true);
-                        }
-                        return chart.data.labels.map((label, index) => ({
-                           text: label,
-                           strokeStyle: 'transparent',
-                           fillStyle: chart.data.datasets[0].backgroundColor[index],
-                           hidden: visibility[index],
-                        }));
-                     },
-                  },
-               }),
-            },
-            tooltip: {
-               boxPadding: 5,
-            },
-            title: {
-               display: true,
-               text: titleText,
-               font: {
-                  size: 17,
-               },
-               padding: {
-                  top: 15,
-                  bottom: 20,
-               },
-            },
-            datalabels: {
-               display: true,
-               align: 'end',
-               anchor: 'end',
-               font: {
-                  size: 12,
-                  weight: 'bold',
-               },
-               offset: -2,
-            },
-         },
-         scale: {
-            ticks: {
-               precision: 0,
-            },
-         },
-      };
-   };
-
-   const studentByHighestRiasecData = {
-      labels: ['Realistic', 'Investigaive', 'Artistic', 'Social', 'Enterprising', 'Conventional'],
-      datasets: !isOverAll
-         ? [
-              {
-                 label: 'Conversation Data',
-                 data: Object.entries(studentByHighestRiasec).map(e => e[1]),
-                 backgroundColor: ['#3E80E4', '#FF3131', '#FFA450', '#DC49E9', '#5BDC47', '#FFC83D'],
-              },
-           ]
-         : [
-              {
-                 label: 'Total',
-                 data: Object.entries(studentByHighestRiasec).map(e => e[1]),
-                 backgroundColor: ['#5BDC47'],
-              },
-              ...strandOptions.map((strand, i) => ({
-                 label: strand,
-                 data: Object.values(studentByHighestRiasecPerStrand).map(
-                    value =>
-                       value[
-                          strand
-                             .toLowerCase()
-                             .replaceAll(' ', '')
-                             .replaceAll(/[^a-zA-Z ]/g, '')
-                       ]
-                 ),
-                 backgroundColor: [strandBarColors[i]],
-              })),
-           ],
-   };
-
-   const studentByStrandData = {
-      labels: strandOptions,
+    return {
+      labels: ['Realistic', 'Investigative', 'Artistic', 'Social', 'Enterprising', 'Conventional'],
       datasets: [
-         {
-            label: 'Conversation Data',
-            data: studentByStrand && Object.entries(studentByStrand).map(e => e[1]),
-            backgroundColor: strandBarColors.slice(0, strandOptions.length),
-         },
+        {
+          label: 'Total',
+          data: [
+            totalScores.realistic,
+            totalScores.investigative,
+            totalScores.artistic,
+            totalScores.social,
+            totalScores.enterprising,
+            totalScores.conventional,
+          ],
+          backgroundColor: '#28a745',
+        },
+        {
+          label: 'ABM',
+          data: [
+            strandScores.ABM.realistic,
+            strandScores.ABM.investigative,
+            strandScores.ABM.artistic,
+            strandScores.ABM.social,
+            strandScores.ABM.enterprising,
+            strandScores.ABM.conventional,
+          ],
+          backgroundColor: '#fd7e14',
+          hidden: true, // Initially hidden
+        },
+        {
+          label: 'ARTS & DESIGN',
+          data: [
+            strandScores.ARTSDESIGN.realistic,
+            strandScores.ARTSDESIGN.investigative,
+            strandScores.ARTSDESIGN.artistic,
+            strandScores.ARTSDESIGN.social,
+            strandScores.ARTSDESIGN.enterprising,
+            strandScores.ARTSDESIGN.conventional,
+          ],
+          backgroundColor: '#17a2b8',
+          hidden: true,
+        },
+        {
+          label: 'STEM',
+          data: [
+            strandScores.STEM.realistic,
+            strandScores.STEM.investigative,
+            strandScores.STEM.artistic,
+            strandScores.STEM.social,
+            strandScores.STEM.enterprising,
+            strandScores.STEM.conventional,
+          ],
+          backgroundColor: '#ffc107',
+          hidden: true,
+        },
+        {
+          label: 'HUMMS',
+          data: [
+            strandScores.HUMMS.realistic,
+            strandScores.HUMMS.investigative,
+            strandScores.HUMMS.artistic,
+            strandScores.HUMMS.social,
+            strandScores.HUMMS.enterprising,
+            strandScores.HUMMS.conventional,
+          ],
+          backgroundColor: '#dc3545',
+          hidden: true,
+        },
+        {
+          label: 'TVL - Information and Communications Technology',
+          data: [
+            strandScores['TVL - Information and Communications Technology'].realistic,
+            strandScores['TVL - Information and Communications Technology'].investigative,
+            strandScores['TVL - Information and Communications Technology'].artistic,
+            strandScores['TVL - Information and Communications Technology'].social,
+            strandScores['TVL - Information and Communications Technology'].enterprising,
+            strandScores['TVL - Information and Communications Technology'].conventional,
+          ],
+          backgroundColor: '#007bff',
+          hidden: true,
+        },
+        {
+          label: 'TVL - Home Economics',
+          data: [
+            strandScores['TVL - Home Economics'].realistic,
+            strandScores['TVL - Home Economics'].investigative,
+            strandScores['TVL - Home Economics'].artistic,
+            strandScores['TVL - Home Economics'].social,
+            strandScores['TVL - Home Economics'].enterprising,
+            strandScores['TVL - Home Economics'].conventional,
+          ],
+          backgroundColor: '#6c757d',
+          hidden: true,
+        },
+        {
+          label: 'TVL - Agri-Fishery Arts',
+          data: [
+            strandScores['TVL - Agri-Fishery Arts'].realistic,
+            strandScores['TVL - Agri-Fishery Arts'].investigative,
+            strandScores['TVL - Agri-Fishery Arts'].artistic,
+            strandScores['TVL - Agri-Fishery Arts'].social,
+            strandScores['TVL - Agri-Fishery Arts'].enterprising,
+            strandScores['TVL - Agri-Fishery Arts'].conventional,
+          ],
+          backgroundColor: '#20c997',
+          hidden: true,
+        },
+        {
+          label: 'TVL - Industrial Arts',
+          data: [
+            strandScores['TVL - Industrial Arts'].realistic,
+            strandScores['TVL - Industrial Arts'].investigative,
+            strandScores['TVL - Industrial Arts'].artistic,
+            strandScores['TVL - Industrial Arts'].social,
+            strandScores['TVL - Industrial Arts'].enterprising,
+            strandScores['TVL - Industrial Arts'].conventional,
+          ],
+          backgroundColor: '#ffc0cb',
+          hidden: true,
+        },
       ],
-   };
+    };
+  };
+  
+  // Chart options with legend interactivity
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false, // Disable default aspect ratio
+    plugins: {
+      legend: {
+        display: true,
+        onClick: (e, legendItem) => {
+          const index = legendItem.datasetIndex;
+          const ci = legendItem.chart;
+          const meta = ci.getDatasetMeta(index);
+  
+          // Toggle the visibility of the clicked dataset
+          meta.hidden = meta.hidden === null ? !ci.data.datasets[index].hidden : null;
+          ci.update();
+        },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          stepSize: 1,
+        },
+      },
+    },
+  };
+  
+  // Use in the component
+  <Bar data={getRiasecChartData()} options={options} />;
+  
+  const getSexChartData = () => {
+    const filteredData = getFilteredData();
+    let maleCount = 0;
+    let femaleCount = 0;
 
-   const studentBySexData = {
+    filteredData.forEach((conversation) => {
+      if (conversation.sex === 'Male') {
+        maleCount += 1;
+      } else if (conversation.sex === 'Female') {
+        femaleCount += 1;
+      }
+    });
+
+    return {
       labels: ['Male', 'Female'],
-      datasets: !isOverAll
-         ? [
-              {
-                 label: 'Conversation Data',
-                 data: Object.entries(studentBySex).map(e => e[1]),
-                 backgroundColor: ['#3E80E4', '#FF3131'],
-              },
-           ]
-         : [
-              {
-                 label: 'Total',
-                 data: Object.entries(studentBySex).map(e => e[1]),
-                 backgroundColor: ['#5BDC47'],
-              },
-              ...strandOptions.map((strand, i) => ({
-                 label: strand,
-                 data: Object.values(studentBySexPerStrand).map(
-                    value =>
-                       value[
-                          strand
-                             .toLowerCase()
-                             .replaceAll(' ', '')
-                             .replaceAll(/[^a-zA-Z ]/g, '')
-                       ]
-                 ),
-                 backgroundColor: [strandBarColors[i]],
-              })),
-           ],
-   };
-
-   const handleFilterStrandChange = e => {
-      const strandValue = e.target.value.includes('&') ? e.target.value.replace('&', '%26') : e.target.value;
-      setInputs(prev => ({ ...prev, strand: strandValue }));
-   };
-
-   const filter = () => {
-      fetchAllConversations();
-      fetchConversationsByStrand(strand);
-
-      if (strand === 'all') setIsOverAll(true);
-      else setIsOverAll(false);
-
-      setChartsInfo(prev => ({
-         ...prev,
-         studentByHighestRiasecChart: {
-            filename: `Number of Students by Strongest RIASEC Area${
-               schoolYearStart ? `_SY ${schoolYearStart.getFullYear()} - ${schoolYearStart.getFullYear() + 1}` : ''
-            }${strand === 'all' ? ' - Overall' : ` - ${strand.replace('%26', '&')}`}.png`,
-         },
-         studentBySexChart: {
-            filename: `Number of Students by Sex${
-               schoolYearStart ? `_SY ${schoolYearStart.getFullYear()} - ${schoolYearStart.getFullYear() + 1}` : ''
-            }${strand === 'all' ? ' - Overall' : ` - ${strand.replace('%26', '&')}`}.png`,
-         },
-      }));
-   };
-
-   const handleIsFilterByYearChange = e => {
-      if (e.target.checked) setIsFilterBySchoolYear(e.target.checked);
-      else {
-         setIsFilterBySchoolYear(e.target.checked);
-         setSchoolYearStart(null);
+      datasets: [
+        {
+          label: 'Gender Distribution',
+          data: [maleCount, femaleCount],
+          backgroundColor: ['#007bff', '#ff6ec7'],
+        },
+      ],
+    };
+  };
+  
+  const getGradeLevelChartData = () => {
+    const filteredData = getFilteredData();
+    let grade11Count = 0;
+    let grade12Count = 0;
+  
+    filteredData.forEach((conversation) => {
+      if (conversation.grade_level === '11') {
+        grade11Count += 1;
+      } else if (conversation.grade_level === '12') {
+        grade12Count += 1;
       }
-   };
-
-   const download = () => {
-      const studentByHighestRiasecChartLink = document.createElement('a');
-      studentByHighestRiasecChartLink.download = chartsInfo.studentByHighestRiasecChart.filename;
-      studentByHighestRiasecChartLink.href = studentByHighestRiasecChartRef.current.toBase64Image();
-      studentByHighestRiasecChartLink.click();
-
-      const studentBySexChartLink = document.createElement('a');
-      studentBySexChartLink.download = chartsInfo.studentBySexChart.filename;
-      studentBySexChartLink.href = studentBySexChartRef.current.toBase64Image();
-      studentBySexChartLink.click();
-
-      if (!isOverAll) {
-         const studentByStrandChartLink = document.createElement('a');
-         studentByStrandChartLink.download = chartsInfo.studentByStrandChart.filename;
-         studentByStrandChartLink.href = studentByStrandChartRef.current.toBase64Image();
-         studentByStrandChartLink.click();
-      }
-   };
-
-   useEffect(() => {
-      isMounted.current = true;
-      fetchDistinctStrand();
-
-      return () => {
-         isMounted.current = false;
-      };
-   }, []);
-
-   useEffect(() => {
-      isMounted.current = true;
-      if (initialRender.current) {
-         fetchConversationsByStrand('all');
-         fetchAllConversations();
-      } else initialRender.current = true;
-
-      return () => {
-         isMounted.current = false;
-      };
-   }, [strandOptions]);
-
-   useEffect(() => {
-      // adding count to riasec areas only if it is equal to highest score
-      // # of student by their Highest/Strongest Score Riasec Aria
-      conversations.forEach(conversation => {
-         const strand = conversation.strand
-            .toLowerCase()
-            .replaceAll(' ', '')
-            .replaceAll(/[^a-zA-Z ]/g, '');
-         const scoreCode1 = conversation.riasec_code[0];
-         const scoreCode2 = conversation.riasec_code[1];
-         const scoreCode3 = conversation.riasec_code[2];
-
-         // add +1 in specific area if riasec_code's riasec_area is same as area (riasec area)
-         // execute only if 1nd riasec_code's score must not be zero
-         // add +1 to the strand
-         if (scoreCode1[1] && scoreCode1[0] === 'realistic') {
-            setStudentByHighestRiasec(prev => ({ ...prev, realistic: prev.realistic + 1 }));
-            if (inputs.strand === 'all') {
-               setStudentByHighestRiasecPerStrand(prev => ({ ...prev, realistic: { ...prev.realistic, [strand]: prev.realistic[strand] + 1 } }));
-            }
-         } else if (scoreCode1[1] && scoreCode1[0] === 'investigative') {
-            setStudentByHighestRiasec(prev => ({ ...prev, investigative: prev.investigative + 1 }));
-            if (inputs.strand === 'all') {
-               setStudentByHighestRiasecPerStrand(prev => ({
-                  ...prev,
-                  investigative: { ...prev.investigative, [strand]: prev.investigative[strand] + 1 },
-               }));
-            }
-         } else if (scoreCode1[1] && scoreCode1[0] === 'artistic') {
-            setStudentByHighestRiasec(prev => ({ ...prev, artistic: prev.artistic + 1 }));
-            if (inputs.strand === 'all') {
-               setStudentByHighestRiasecPerStrand(prev => ({ ...prev, artistic: { ...prev.artistic, [strand]: prev.artistic[strand] + 1 } }));
-            }
-         } else if (scoreCode1[1] && scoreCode1[0] === 'social') {
-            setStudentByHighestRiasec(prev => ({ ...prev, social: prev.social + 1 }));
-            if (inputs.strand === 'all') {
-               setStudentByHighestRiasecPerStrand(prev => ({ ...prev, social: { ...prev.social, [strand]: prev.social[strand] + 1 } }));
-            }
-         } else if (scoreCode1[1] && scoreCode1[0] === 'enterprising') {
-            setStudentByHighestRiasec(prev => ({ ...prev, enterprising: prev.enterprising + 1 }));
-            if (inputs.strand === 'all') {
-               setStudentByHighestRiasecPerStrand(prev => ({
-                  ...prev,
-                  enterprising: { ...prev.enterprising, [strand]: prev.enterprising[strand] + 1 },
-               }));
-            }
-         } else if (scoreCode1[1] && scoreCode1[0] === 'conventional') {
-            setStudentByHighestRiasec(prev => ({ ...prev, conventional: prev.conventional + 1 }));
-            if (inputs.strand === 'all') {
-               setStudentByHighestRiasecPerStrand(prev => ({
-                  ...prev,
-                  conventional: { ...prev.conventional, [strand]: prev.conventional[strand] + 1 },
-               }));
-            }
-         }
-
-         // add +1 in 2nd riasec_code's riasec_area if 1st riasec_code's score is equal to 2nd riasec_code's score
-         // add +1 in 3nd riasec_code's riasec_area if 1st riasec_code's score is equal to 3nd riasec_code's score
-         // execute only if 1nd riasec_code's score must not be zero
-         // add +1 to the strand
-         if (scoreCode1[1] && scoreCode1[1] === scoreCode2[1]) {
-            setStudentByHighestRiasec(prev => ({ ...prev, [scoreCode2[0]]: prev[scoreCode2[0]] + 1 }));
-            if (inputs.strand === 'all') {
-               setStudentByHighestRiasecPerStrand(prev => ({
-                  ...prev,
-                  [scoreCode2[0]]: { ...prev[scoreCode2[0]], [strand]: prev[scoreCode2[0]][strand] + 1 },
-               }));
-            }
-         }
-         if (scoreCode1[1] && scoreCode1[1] === scoreCode3[1]) {
-            setStudentByHighestRiasec(prev => ({ ...prev, [scoreCode3[0]]: prev[scoreCode3[0]] + 1 }));
-            if (inputs.strand === 'all') {
-               setStudentByHighestRiasecPerStrand(prev => ({
-                  ...prev,
-                  [scoreCode3[0]]: { ...prev[scoreCode3[0]], [strand]: prev[scoreCode3[0]][strand] + 1 },
-               }));
-            }
-         }
-
-         // adding to count to male and female
-         // # of students by sex
-         if (conversation.sex === 'Male') {
-            setStudentBySex(prev => ({ ...prev, male: prev.male + 1 }));
-            if (inputs.strand === 'all') setStudentBySexPerStrand(prev => ({ ...prev, male: { ...prev.male, [strand]: prev.male[strand] + 1 } }));
-         }
-         if (conversation.sex === 'Female') {
-            setStudentBySex(prev => ({ ...prev, female: prev.female + 1 }));
-            setStudentBySexPerStrand(prev => ({ ...prev, female: { ...prev.female, [strand]: prev.female[strand] + 1 } }));
-         }
+    });
+  
+    // Define chart data and options
+    return {
+      labels: ['Gr:11', 'Gr:12'],
+      datasets: [
+        {
+          label: 'Students by Grade Level',
+          data: [grade11Count, grade12Count],
+          backgroundColor: ['#007bff', '#dc3545'],
+        },
+      ],
+      options: {
+        responsive: true,
+        maintainAspectRatio: false, // Disable default aspect ratio
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              stepSize: 1, // Ensure integer values only
+            },
+          },
+        },
+      },
+    };
+  };
+  
+  
+  // Function to download chart as PNG
+  const downloadPNG = () => {
+    html2canvas(chartRef.current).then((canvas) => {
+      canvas.toBlob(function (blob) {
+        FileSaver.saveAs(blob, 'dashboard.png');
       });
-   }, [conversations]);
+    });
+  };
 
-   useEffect(() => {
-      // iterate over the distict strand, then if conversation strand or strand of student is sanme as the given strand then + 1
-      strandOptions.forEach(st => {
-         const strand = st
-            .toLowerCase()
-            .replaceAll(' ', '')
-            .replaceAll(/[^a-zA-Z ]/g, '');
-         conversationsPerStrand.forEach(conversation => {
-            if (conversation.strand === st) {
-               setStudentByStrand(prev => ({ ...prev, [strand]: prev[`${strand}`] + 1 }));
-            }
-         });
-      });
-   }, [conversationsPerStrand]);
-
-   return (
-      <div className='admin-contents px-4 pb-4 position-relative'>
-   
-         <h1 className='h3 custom-heading mt-3 mb-2'>Dashboard</h1>
-         <div className='d-flex flex-wrap justify-content-end align-items-center'>
-            <div className='d-flex align-items-center me-3 mb-3'>
-               <span className='text-sm me-3'>Strand: </span>
-               <select className='form-select' name='strand' id='strand' onChange={handleFilterStrandChange} disabled={isLoading}>
-                  <option value='all'>Overall</option>
-                  {strandOptions &&
-                     strandOptions.map((strand, i) => (
-                        <option className='text-wrap' key={i} value={strand}>
-                           {strand}
-                        </option>
-                     ))}
-               </select>
+  // CSV data for download
+  const csvData = dashboardData.map((row) => ({
+    Name: row.name,
+    Sex: row.sex,
+    Strand: row.strand,
+    'Realistic Score': row.realistic_score,
+    'Investigative Score': row.investigative_score,
+    'Artistic Score': row.artistic_score,
+    'Social Score': row.social_score,
+    'Enterprising Score': row.enterprising_score,
+    'Conventional Score': row.conventional_score,
+  }));
+  return (
+    <Container fluid>
+    <Row>
+      {/* Sidebar */}
+      <Col
+        xs="auto"
+        className="bg-warning vh-100"
+        style={{
+          width: isSidebarCollapsed ? '80px' : '200px',
+          transition: 'width 0.3s ease',
+          overflow: 'hidden',
+        }}
+      >
+        <div style={{ marginTop: '20px' }}>
+          <Button
+            variant="link"
+            className="text-white"
+            onClick={toggleSidebar}
+            style={{ marginBottom: '20px' }}
+          >
+            {/* Hamburger Icon for toggling sidebar */}
+            <span className="navbar-toggler-icon"></span>
+          </Button>
+  
+          <Nav className="flex-column text-center">
+            <Nav.Item className="mb-2">
+              <Nav.Link
+                href="/admin/dashboard"
+                className="text-white fw-bold d-flex align-items-center justify-content-center"
+                style={{
+                  flexDirection: isSidebarCollapsed ? 'column' : 'row',
+                  transition: 'all 0.3s ease',
+                  fontSize: isSidebarCollapsed ? '0.8rem' : '1rem',
+                  color: 'white',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'white';
+                  e.currentTarget.querySelector('svg').style.fill = 'white';
+                  e.currentTarget.querySelector('span').style.color = 'white';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '';
+                  e.currentTarget.querySelector('svg').style.fill = '';
+                  e.currentTarget.querySelector('span').style.color = '';
+                }}
+              >
+                <FaHome className="me-2" size={isSidebarCollapsed ? 25 : 20} />
+                {!isSidebarCollapsed && <span>Dashboard</span>}
+              </Nav.Link>
+            </Nav.Item>
+  
+            <Nav.Item className="mb-2">
+              <Nav.Link
+                href="conversation"
+                className="text-white fw-bold d-flex align-items-center justify-content-center"
+                style={{
+                  flexDirection: isSidebarCollapsed ? 'column' : 'row',
+                  transition: 'all 0.3s ease',
+                  fontSize: isSidebarCollapsed ? '0.8rem' : '1rem',
+                  color: 'white',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'white';
+                  e.currentTarget.querySelector('svg').style.fill = 'white';
+                  e.currentTarget.querySelector('span').style.color = 'white';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '';
+                  e.currentTarget.querySelector('svg').style.fill = '';
+                  e.currentTarget.querySelector('span').style.color = '';
+                }}
+              >
+                <FaClipboardList className="me-2" size={isSidebarCollapsed ? 25 : 20} />
+                {!isSidebarCollapsed && <span>Conversations</span>}
+              </Nav.Link>
+            </Nav.Item>
+  
+            <Nav.Item className="mb-2">
+              <Nav.Link
+                href="/admin/feedback"
+                className="text-white fw-bold d-flex align-items-center justify-content-center"
+                style={{
+                  flexDirection: isSidebarCollapsed ? 'column' : 'row',
+                  transition: 'all 0.3s ease',
+                  fontSize: isSidebarCollapsed ? '0.8rem' : '1rem',
+                  color: 'white',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'white';
+                  e.currentTarget.querySelector('svg').style.fill = 'white';
+                  e.currentTarget.querySelector('span').style.color = 'white';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '';
+                  e.currentTarget.querySelector('svg').style.fill = '';
+                  e.currentTarget.querySelector('span').style.color = '';
+                }}
+              >
+                <FaCommentDots className="me-2" size={isSidebarCollapsed ? 25 : 20} />
+                {!isSidebarCollapsed && <span>Feedback</span>}
+              </Nav.Link>
+            </Nav.Item>
+          </Nav>
+        </div>
+      </Col>
+  
+      {/* Main Content */}
+      <Col
+        xs={isSidebarCollapsed ? 11 : 10}
+        className="p-4"
+        style={{
+          transition: 'width 0.3s ease',
+        }}
+      >
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <h3>Dashboard</h3>
+          <div>
+            <Button className="me-2" onClick={downloadPNG}>
+              Download PNG
+            </Button>
+            <CSVLink data={csvData} filename="dashboard_data.csv" className="btn btn-success">
+              Download CSV
+            </CSVLink>
+          </div>
+        </div>
+  
+        {/* Filters */}
+        <div className="d-flex justify-content-start mb-4">
+          <Form.Group className="me-3">
+            <Form.Label>Grade Level</Form.Label>
+            <Form.Select name="gradeLevel" value={filters.gradeLevel} onChange={handleFilterChange}>
+              <option value="Overall">Overall</option>
+              <option value="11">Grade 11</option>
+              <option value="12">Grade 12</option>
+            </Form.Select>
+          </Form.Group>
+  
+          <Form.Group className="me-3">
+            <Form.Label>Strand</Form.Label>
+            <Form.Select name="strand" value={filters.strand} onChange={handleFilterChange}>
+              <option value="Overall">Overall</option>
+              <option value="STEM">STEM</option>
+              <option value="ABM">ABM</option>
+              <option value="ARTS & DESIGN">Arts & Design</option>
+              <option value="HUMSS">HUMSS</option>
+              <option value="GAS">GAS</option>
+            </Form.Select>
+          </Form.Group>
+  
+          <Form.Group className="me-3">
+            <Form.Label>School Year</Form.Label>
+            <Form.Select name="schoolYear" value={filters.schoolYear} onChange={handleFilterChange}>
+              <option value="2023-2024">2023-2024</option>
+              <option value="2022-2023">2022-2023</option>
+            </Form.Select>
+          </Form.Group>
+  
+          <Button className="mt-auto">Filter</Button>
+        </div>
+  
+        {/* Charts */}
+        <Row>
+          <Col md={6}>
+            <div ref={chartRef}>
+              <Bar data={getRiasecChartData()} />
             </div>
-
-            <div className='d-flex align-items-center me-3 mb-3'>
-               <div className='form-check'>
-                  <input
-                     className='form-check-input me-2'
-                     type='checkbox'
-                     value={isFilterBySchoolYear}
-                     checked={isFilterBySchoolYear}
-                     id='isFilterBySchoolYear'
-                     name='isFilterBySchoolYear'
-                     onChange={handleIsFilterByYearChange}
-                  />
-                  <span className='text-sm me-2'>School Year:</span>
-               </div>
-               <div>
-                  <DatePicker
-                     className='form-control datepicker'
-                     disabled={!isFilterBySchoolYear}
-                     selected={schoolYearStart}
-                     onChange={date => setSchoolYearStart(date)}
-                     showYearPicker
-                     dateFormat='yyyy'
-                  />
-               </div>
-               <div className='mx-1'>-</div>
-               <div>
-                  <input
-                     type='text'
-                     name='end-year'
-                     id='year'
-                     className='form-control me-2 datepicker'
-                     disabled
-                     value={schoolYearStart ? schoolYearStart.getFullYear() + 1 : ''}
-                  />
-               </div>
+          </Col>
+          <Col md={6}>
+            <Bar data={getSexChartData()} />
+          </Col>
+        </Row>
+  
+        <Row className="mt-4">
+          <Col md={12} className="d-flex justify-content-center">
+            <div style={{ width: '80%', maxWidth: '800px', height: '300px' }}>
+              <Bar data={getGradeLevelChartData()} options={getGradeLevelChartData().options} />
             </div>
-
-            <button className='btn btn-primary btn-sm me-3 mb-3' onClick={filter} disabled={isLoading}>
-               <MdFilterAlt className='icon-small me-1' /> Filter
-            </button>
-
-            <button className='btn btn-primary btn-sm me-3 mb-3' onClick={download} disabled={isLoading}>
-               <MdDownload className='icon-small me-1' /> Download
-            </button>
-         </div>
-         <div className='w-100 d-flex flex-wrap justify-content-center align-items-center'>
-            {!isLoading ? (
-               <>
-                  <div className='chart-container'>
-                     <BarChart
-                        ref={studentByHighestRiasecChartRef}
-                        data={studentByHighestRiasecData}
-                        options={getOptions('Number of Students by Highest/Strongest RIASEC Area')}
-                     />
-                  </div>
-                  <div className='chart-container'>
-                     <BarChart ref={studentBySexChartRef} data={studentBySexData} options={getOptions('Number of Students by Sex')} />
-                  </div>
-                  {!isOverAll && (
-                     <div className='chart-container'>
-                        <BarChart ref={studentByStrandChartRef} data={studentByStrandData} options={getOptions('Number of Students by Strand')} />
-                     </div>
-                  )}
-               </>
-            ) : (
-               <div className='position-absolute top-50 start-50 translate-middle p-5'>
-                  <div className='spinner-border spinner-lg text-primary' role='status'></div>
-               </div>
-            )}
-         </div>
-      </div>
-   );
+          </Col>
+        </Row>
+      </Col>
+    </Row>
+  </Container>
+  
+  
+);
 };
-
 export default Dashboard;

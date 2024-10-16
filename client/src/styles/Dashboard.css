@@ -1,0 +1,21 @@
+.dashboard-container {
+  display: flex;
+}
+
+.sidebar-container {
+  background-color: #ffc107; /* yellow warning bg */
+  padding: 0;
+}
+
+.main-content {
+  margin-top: 70px; /* Ensures navbar overlap doesn't affect main content */
+}
+
+.navbar {
+  height: 100vh;
+}
+
+.chart-container {
+  height: 400px; /* or any fixed height for charts */
+  margin-bottom: 20px;
+}

@@ -1,133 +1,93 @@
-import { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { jwtDecode } from 'jwt-decode';  // Correct named import
-import { isEmailValid } from '../../utils/validator';
-import { UserContext } from '../../context/UserContext';
+import 'bootstrap/dist/css/bootstrap.min.css';  // Import Bootstrap
+import Anna1 from '../../assets/Anna_1.svg';  // Import the image from your assets
 
 const GuidanceLogin = () => {
-  const { setIsAuthenticated } = useContext(UserContext);  
-  const navigate = useNavigate();
-  const [inputs, setInputs] = useState({ email: '', password: '' });
-  const { email, password } = inputs;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+   const [admin, setAdmin] = useState('');
+   const [password, setPassword] = useState('');
+   const navigate = useNavigate();
+   
+   // Function to handle login
+   const handleLogin = async (e) => {
+      e.preventDefault();
 
-  // Handle input changes
-  const handleInputChange = (e) => {
-    setInputs({ ...inputs, [e.target.name]: e.target.value });
-  };
+      try {
+         // Send login request to Django backend
+         const response = await fetch('/auth/guidance-login/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ admin, password }),
+         });
 
-  // Function to check if the token is expired
-  const isTokenValid = (token) => {
-    try {
-      const decoded = jwtDecode(token);  // Correct usage of jwtDecode
-      const currentTime = Math.floor(Date.now() / 1000);  // Get current time in seconds
-      console.log('Decoded Token Expiration Time:', decoded.exp, 'Current Time:', currentTime);
-      return decoded.exp > currentTime;  // Token is valid if exp is greater than current time
-    } catch (error) {
-      console.error('Error decoding token:', error);
-      return false;  // Return false if decoding fails
-    }
-  };
+         const data = await response.json();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    e.target.className += ' was-validated';
-
-    // Check if fields are empty
-    if (!email || !password) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-
-    // Validate email format
-    if (!isEmailValid(email)) {
-      toast.error('Invalid email format');
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const loginData = { email, password };
-
-      // Send login request to backend
-      const response = await fetch('http://localhost:8000/auth/guidance-login/', {  
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loginData),
-      });
-
-      const data = await response.json();
-      console.log('Login response:', data);  // Debug: Check login response
-
-      if (response.ok) {
-        // Check if token is valid and handle accordingly
-        if (data.access && isTokenValid(data.access)) {
-          const decoded = jwtDecode(data.access);  // Use jwtDecode correctly (named import)
-          console.log('Decoded Access Token:', decoded);  // Debug: Log decoded access token
-          localStorage.setItem('access', data.access);
-          localStorage.setItem('refresh', data.refresh);
-          setIsAuthenticated(true);  // Mark user as authenticated
-          toast.success('Login successful!');
-          navigate('/admin/dashboard');  // Navigate to dashboard on success
+         if (response.ok) {
+            localStorage.setItem('token', data.access);  // Store access token
+            localStorage.setItem('refreshToken', data.refresh);  // Store refresh token
+            console.log('Access Token:', localStorage.getItem('token'));  // Log access token
+            console.log('Refresh Token:', localStorage.getItem('refreshToken'));  // Log refresh token
+            toast.success('Login successful!');
+            navigate('/admin/dashboard');  // Navigate to the dashboard
         } else {
-          toast.error('Access token is invalid or expired');
+            toast.error(data.error || 'Invalid credentials');
         }
-      } else {
-        toast.error(data.message || 'Login failed');
+      } catch (err) {
+         toast.error('Server error. Please try again later');
+         console.error(err.message);
       }
-    } catch (error) {
-      console.error('Login Error:', error);
-      toast.error('An error occurred during login');
-    } finally {
-      setIsSubmitting(false);  // Reset submitting state
-    }
-  };
+   };
 
-  return (
-    <section className='d-flex justify-content-center align-items-center vh-100 bg-light'>
-      <div className='container' style={{ maxWidth: '400px' }}>
-        <form className='needs-validation' noValidate onSubmit={handleSubmit}>
-          <h1 className='custom-heading mb-5 text-center'>Guidance Login</h1>
+   return (
+      <div className="d-flex flex-column min-vh-100">
+         {/* Main login content */}
+         <div className="container my-auto d-flex justify-content-center align-items-center">
+            <div className="card shadow-lg p-4" style={{ maxWidth: '450px', width: '100%' }}>
+               <div className="text-center">
+                  <div className="d-flex justify-content-center mb-3">
+                     <img src={Anna1} alt="Anna avatar" className="img-fluid rounded-circle" style={{ width: '150px' }} />
+                  </div>
+                  <h2 className="mb-4">Sign In</h2>
+               </div>
+               <form onSubmit={handleLogin}>
+                  <div className="form-group mb-3">
+                     <label htmlFor="admin" className="form-label">Admin</label>
+                     <input
+                        type="text"
+                        className="form-control"
+                        id="admin"
+                        placeholder="Admin"
+                        value={admin}
+                        onChange={(e) => setAdmin(e.target.value)}
+                        required
+                     />
+                  </div>
+                  <div className="form-group mb-3">
+                     <label htmlFor="password" className="form-label">Password</label>
+                     <input
+                        type="password"
+                        className="form-control"
+                        id="password"
+                        placeholder="Password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                     />
+                  </div>
+                  <button type="submit" className="btn btn-warning btn-block w-100">Login</button>
+               </form>
+            </div>
+         </div>
 
-          <div className='form-group mb-4'>
-            <label htmlFor='email' className='form-label'>Email</label>
-            <input
-              className={`form-control ${!email ? 'is-invalid' : ''}`}
-              value={email}
-              type='email'
-              id='email'
-              name='email'
-              required
-              placeholder='Enter your email'
-              onChange={handleInputChange}
-            />
-            <div className='invalid-feedback'>Email can't be empty</div>
-          </div>
-
-          <div className='form-group mb-4'>
-            <label htmlFor='password' className='form-label'>Password</label>
-            <input
-              className={`form-control ${!password ? 'is-invalid' : ''}`}
-              value={password}
-              type='password'
-              id='password'
-              name='password'
-              required
-              placeholder='Enter your password'
-              onChange={handleInputChange}
-            />
-            <div className='invalid-feedback'>Password can't be empty</div>
-          </div>
-
-          <button className='btn btn-primary w-100' type='submit' disabled={isSubmitting}>
-            {isSubmitting ? 'Signing in...' : 'Sign in'}
-          </button>
-        </form>
+         {/* Footer */}
+         <footer className="mt-auto py-2 bg-warning text-center">
+            <div className="container">
+               <p className="mb-0">ANNA | Copyright © 2024</p>
+            </div>
+         </footer>
       </div>
-    </section>
-  );
+   );
 };
 
 export default GuidanceLogin;

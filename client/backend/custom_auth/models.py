@@ -53,6 +53,8 @@ class MyUserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
+
+
 class Conversation(models.Model):
     # Foreign key to the user model
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='conversations')
@@ -62,6 +64,10 @@ class Conversation(models.Model):
     age = models.IntegerField()
     sex = models.CharField(max_length=20)
     strand = models.CharField(max_length=255)
+    
+    # Add the grade_level field, nullable for existing data
+    grade_level = models.CharField(max_length=10, null=True, blank=True)  # New field with null=True
+    
     realistic_score = models.IntegerField(default=0)
     investigative_score = models.IntegerField(default=0)
     artistic_score = models.IntegerField(default=0)

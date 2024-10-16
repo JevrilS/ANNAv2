@@ -172,9 +172,8 @@ const Chatbot = () => {
             },
          },
       };
-
+   
       // remove any preceding quick reply message before appending the user message
-      // check if preceing message is an quick if it is remove the message
       if (
          messages[messages.length - 1].msg.payload &&
          messages[messages.length - 1].msg.payload.fields &&
@@ -182,10 +181,10 @@ const Chatbot = () => {
       ) {
          removeQuickRepliesAfterType(messages, setMessages);
       }
-
+   
       setMessages(prev => [...prev, userSays]);
       setBotChatLoading(true);
-
+   
       try {
          const body = { text, userId: cookies.get('userId'), parameters };
          const response = await fetch('http://localhost:5000/api/df_text_query/', {
@@ -196,7 +195,7 @@ const Chatbot = () => {
          const data = await response.json();
          setBotChatLoading(false);
          console.dir(data);
-
+   
          // provide message if response status 200, elese need to add chatbot message if server error 500
          if (response.status === 200 && data) {
             if (data.intent && data.intent.displayName === 'Default Welcome Intent') {
@@ -217,12 +216,12 @@ const Chatbot = () => {
                   setEndConversation(true);
                   return;
                }
-
+   
                // object intent name does not exist assign 1 else if exisit just increment by 1
                if (!fallbackCount[`${intentName}`]) setFallbackCount(prev => ({ ...prev, [intentName]: 1 }));
                else setFallbackCount(prev => ({ ...prev, [intentName]: prev[`${intentName}`] + 1 }));
             }
-
+   
             if (data.parameters.fields) {
                // get parameters data and set it to state
                const fields = data.parameters.fields;
@@ -231,14 +230,17 @@ const Chatbot = () => {
                else if (fields.sex) setUser(prev => ({ ...prev, sex: fields.sex.stringValue }));
                else if (fields.strand) setUser(prev => ({ ...prev, strand: fields.strand.stringValue }));
             }
-
+   
+            // Log the value of user.strand before triggering the STRAND_RECOMMENDATION event
+            console.log("Strand being sent to Dialogflow:", user.strand);
+   
             data.fulfillmentMessages.forEach(async msg => {
                const botSays = {
                   speaks: 'bot',
                   msg: msg,
                };
                setMessages(prev => [...prev, botSays]);
-
+   
                // trigger something based on the payload sent by dialogflow
                if (msg.payload && msg.payload.fields && msg.payload.fields.riasec) {
                   const riasecValue = msg.payload.fields.riasec.stringValue;
@@ -257,9 +259,6 @@ const Chatbot = () => {
                         break;
                      case 'enterprising':
                         if (msg.payload.fields.riasec_last_question) {
-                           // trigger to get the up to date value of riasec with out waiting for the state to finish
-                           // because triggering the handleRiasecRecommendation() will not able to get the updated value of riasec state
-                           // applies only for enterprising since its the last question
                            handleRiasecRecommendation({ ...riasec, enterprising: riasec.enterprising + 1 });
                         }
                         setRiasec(prev => ({ ...prev, enterprising: prev.enterprising + 1 }));
@@ -270,10 +269,11 @@ const Chatbot = () => {
                   }
                }
                if (msg.payload && msg.payload.fields && !msg.payload.fields.riasec && msg.payload.fields.riasec_last_question) {
-                  // trigger recommendation after last question and answer was "no"
                   handleRiasecRecommendation(riasec);
                }
                if (msg.payload && msg.payload.fields && msg.payload.fields.iswant_strand_recommendation) {
+                  // Log the strand again before sending to Dialogflow
+                  console.log("Sending strand to STRAND_RECOMMENDATION event:", user.strand);
                   df_event_query('STRAND_RECOMMENDATION', { strand: user.strand });
                   setIsRecommendationProvided(prev => ({ ...prev, strand: 'done' }));
                }
@@ -291,7 +291,7 @@ const Chatbot = () => {
          }
       } catch (err) {
          console.log(err.message);
-
+   
          setBotChatLoading(false);
          const botSays = {
             speaks: 'bot',
@@ -304,22 +304,29 @@ const Chatbot = () => {
          setMessages(prev => [...prev, botSays]);
       }
    };
-
    const df_event_query = async (event, parameters) => {
       try {
           setBotChatLoading(true);
   
-          // Add the contexts and event details
+          // Log and check the parameters before sending to Dialogflow
+          if (!parameters) {
+              console.warn(`Parameters are missing for event: ${event}`);
+          } else {
+              console.log("Parameters being sent:", parameters);
+  
+              // Normalize the strand parameter by trimming and converting it to lowercase
+              if (parameters.strand) {
+                  const cleanedStrand = parameters.strand.trim().toLowerCase(); // Normalize the strand
+                  console.log("Normalized strand being sent:", cleanedStrand);
+              }
+          }
+  
+          // Prepare the body to send to Dialogflow
           const body = {
               event,
               userId: cookies.get('userId'),
-              parameters
+              parameters: parameters || {}  // Ensure parameters are never undefined
           };
-  
-          // Log the strand being queried
-          if (parameters && parameters.strand) {
-              console.log("Strand being queried:", parameters.strand);
-          }
   
           console.log('Sending event to Dialogflow:', body); // Log the request body being sent to Dialogflow
   
@@ -336,7 +343,7 @@ const Chatbot = () => {
           setBotChatLoading(false);
   
           if (response.status === 200 && data) {
-              // Clear all state when welcome intent trigger
+              // Clear all state when welcome intent is triggered
               if (data.intent && data.intent.displayName === 'Default Welcome Intent') {
                   clearState();
               } else if (!data.intent) {
@@ -358,6 +365,7 @@ const Chatbot = () => {
                   if (msg.payload && msg.payload.fields) {
                       // Handle strand recommendation trigger
                       if (msg.payload.fields.iswant_strand_recommendation) {
+                          console.log("Sending strand to STRAND_RECOMMENDATION event:", parameters.strand);  // Log the strand being sent
                           df_event_query('STRAND_RECOMMENDATION', { strand: user.strand });
                           setIsRecommendationProvided(prev => ({ ...prev, strand: 'done' }));
                       }
@@ -411,11 +419,10 @@ const Chatbot = () => {
                       }
   
                       if (msg.payload.fields.strand_recommended_courses) {
-                        const recommendedCourses = msg.payload.fields.strand_recommended_courses.listValue.values;
-                        console.log('Courses received:', recommendedCourses);  // Add this line to log the courses received
-                        setStrandBasedRecommendedCourses(recommendedCourses.map(course => course.stringValue));
-                    }
-                    
+                          const recommendedCourses = msg.payload.fields.strand_recommended_courses.listValue.values;
+                          console.log('Courses received:', recommendedCourses);  // Log the courses received
+                          setStrandBasedRecommendedCourses(recommendedCourses.map(course => course.stringValue));
+                      }
   
                       if (msg.payload.fields.end_conversation) {
                           savedConversation(user, riasecCode, riasecBasedRecommendedCourses, strandBasedRecommendedCourses);
@@ -453,7 +460,7 @@ const Chatbot = () => {
       }
   };
   
-
+  
    const triggerCourseOptionYes = () => {
       // this will keep the context exceeds the time limit of 20mins, because users might take time watching the videos
       // after the  course options was rendered, trigger the course option timer after 15 minutes to reset the timer of the intent's context
@@ -585,12 +592,13 @@ const Chatbot = () => {
            return;
        }
 
-       // Prepare body data including individual RIASEC scores
+       // Prepare body data including individual RIASEC scores and grade level
        const body = {
            name: titleCase(user.name),  // Title case the name
            age: user.age,
            sex: user.sex,
            strand: user.strand,
+           grade_level: user.gradeLevel,  // Use grade_level for the database field
            riasec_code: riasecCode,  // Array of RIASEC codes
            riasec_course_recommendation: riasecCourses,  // Array of recommended courses based on RIASEC
            strand_course_recommendation: strandCourses,  // Array of strand-based recommended courses
@@ -648,6 +656,7 @@ const Chatbot = () => {
        console.error('Unexpected error saving conversation:', err.message);
    }
 };
+
 
 
   

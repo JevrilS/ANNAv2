@@ -272,38 +272,50 @@ module.exports = app => {
       };
 
       const handleStrandRecommendation = async agent => {
-         const context = agent.contexts.filter(el => el.name === 'strand_recommendation'); // get the specific context
-         const parameters = context[0].parameters;
-         const toFilterStrand = [parameters['strand'].toUpperCase()];
+         const context = agent.contexts.find(el => el.name === 'strand_recommendation'); // Get the context
+         const parameters = context.parameters;
+         const toFilterStrand = [parameters.strand.toUpperCase()]; // Ensure strand is uppercased for consistent comparison
+     
+         console.log('Strand being used for recommendation:', toFilterStrand); // Log the strand being used
+     
          const payload = { basis: 'strand' };
-
-         console.log('toFilterStrand = ', toFilterStrand);
-
+     
          try {
-            const strandBasedRecommendedCourses = await Course.find({ strand: { $in: toFilterStrand } }).sort({ name: 'asc' });
-            const strandBasedRecommendedCoursesNames = strandBasedRecommendedCourses.map(course => course.name);
-
-            payload.strand_recommended_courses = strandBasedRecommendedCoursesNames;
-            agent.add(new Payload(agent.UNSPECIFIED, payload, { rawPayload: true, sendAsMessage: true })); // passed custom payload
+             // Find courses by strand using the Course model
+             const strandBasedRecommendedCourses = await Course.find({ strand: { $in: toFilterStrand } }).sort({ name: 'asc' });
+     
+             if (!strandBasedRecommendedCourses.length) {
+                 // No courses found for this strand
+                 console.log(`No courses found for strand: ${parameters.strand}`);
+                 agent.add(`Sorry, I couldn't find any degree programs for the strand: ${parameters.strand}.`);
+                 return;
+             }
+     
+             // Prepare the course names for the response
+             const strandBasedRecommendedCoursesNames = strandBasedRecommendedCourses.map(course => course.name);
+     
+             payload.strand_recommended_courses = strandBasedRecommendedCoursesNames; // Attach courses to payload
+             console.log('Courses found:', strandBasedRecommendedCoursesNames); // Log found courses
+     
+             // Send the response with the courses
+             agent.add(new Payload(agent.UNSPECIFIED, payload, { rawPayload: true, sendAsMessage: true }));
          } catch (err) {
-            console.error(err.message);
-
-            // when error occur end the conversation, clear all context
-            const contexts = agent.contexts;
-            const errorPayload = { end_conversation: true };
-
-            // clear all context by setting lifespan to zero (0)
-            contexts.forEach(context => {
-               agent.setContext({ name: context.name, lifespan: 0 });
-            });
-
-            agent.add(
-               'Sorry. I am having trouble 🤕. I was unable to look up the degree programs, which was supposed to be my recommendation based on your strand. I need to terminate. Will be back later.'
-            );
-            agent.add(new Payload(agent.UNSPECIFIED, errorPayload, { rawPayload: true, sendAsMessage: true }));
+             console.error('Error fetching courses:', err);
+     
+             // Handle error and terminate conversation
+             const contexts = agent.contexts;
+             const errorPayload = { end_conversation: true };
+     
+             // Clear all context by setting lifespan to zero
+             contexts.forEach(context => {
+                 agent.setContext({ name: context.name, lifespan: 0 });
+             });
+     
+             agent.add('Sorry. I am having trouble fetching the degree programs for your strand. I need to terminate. Will be back later.');
+             agent.add(new Payload(agent.UNSPECIFIED, errorPayload, { rawPayload: true, sendAsMessage: true }));
          }
-      };
-
+     };
+     
       const handleGetRiasecRecommendationCourseInfo = async agent => {
          const context = agent.contexts.filter(el => el.name === 'get_riasec_recommendation_course_info'); // get the specific context
          const parameters = context[0].parameters;

@@ -17,3 +17,4 @@ client/backend/*.log
 # Ignore other environment-specific files
 client/backend/.env
 client/backend/.DS_Store
+/node_modules

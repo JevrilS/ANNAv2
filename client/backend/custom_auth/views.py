@@ -84,6 +84,9 @@ def save_conversation(request):
         enterprising_score = data.get('enterprising_score', 0)
         conventional_score = data.get('conventional_score', 0)
 
+        # Fetch grade_level from the authenticated user profile
+        grade_level = request.user.grade_level  # Assuming it's stored in the custom_auth_user model
+
         # Create a new conversation record, associate it with the authenticated user, and save to the Conversation model
         conversation = Conversation.objects.create(
             user=request.user,  # Associate with the authenticated user
@@ -91,6 +94,7 @@ def save_conversation(request):
             age=age,
             sex=sex,
             strand=strand,
+            grade_level=grade_level,  # Add grade_level when creating the conversation
             riasec_code=json.dumps(riasec_code),  # Store RIASEC code as JSON
             riasec_course_recommendation=json.dumps(riasec_courses),  # Store RIASEC course recommendations as JSON
             strand_course_recommendation=json.dumps(strand_courses),  # Store strand course recommendations as JSON
@@ -109,7 +113,6 @@ def save_conversation(request):
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -409,33 +412,48 @@ def check_schema_view(request):
 from urllib.parse import urlparse
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
 def guidance_login_view(request):
+    email = request.data.get('admin')  # Using 'admin' as the key for the email field
+    password = request.data.get('password')
+
+    # Authenticate the user using email and password
+    user = authenticate(request, username=email, password=password)
+
+    if user is not None and user.is_active:
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }, status=200)
+    else:
+        return Response({'error': 'Invalid credentials'}, status=400)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_dashboard_data(request):
     try:
-        # Extract just the hostname (without port)
-        domain_name = urlparse(f'//{request.get_host()}').hostname
-        logger.info(f'Requested domain: {domain_name}')
+        # Fetch all conversations data
+        conversations = Conversation.objects.all()
 
-        # Use the same query to get the schema_name based on the request domain
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT client.schema_name 
-                FROM custom_auth_domain domain
-                JOIN custom_auth_client client ON domain.tenant_id = client.id
-                WHERE domain.domain = %s AND domain.is_primary = true
-            """, [domain_name])
-            schema_name = cursor.fetchone()
+        # Prepare data for each conversation
+        data = []
+        for conversation in conversations:
+            data.append({
+                'name': conversation.name,
+                'sex': conversation.sex,
+                'strand': conversation.strand,
+                'grade_level': conversation.user.grade_level,  # Fetch grade level from related user
+                'realistic_score': conversation.realistic_score,
+                'investigative_score': conversation.investigative_score,
+                'artistic_score': conversation.artistic_score,
+                'social_score': conversation.social_score,
+                'enterprising_score': conversation.enterprising_score,
+                'conventional_score': conversation.conventional_score,
+                'created_at': conversation.created_at,
+            })
 
-        # Log the schema_name
-        if schema_name:
-            logger.info(f'Found schema: {schema_name[0]} for domain: {domain_name}')
-        else:
-            logger.error(f'No tenant schema found for the request domain: {domain_name}')
-            return Response({'message': 'Tenant not found'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Add a response to confirm the tenant and schema are correct
-        return Response({'message': f'Tenant and schema for domain {domain_name} are correct, schema: {schema_name[0]}'})
-
+        return JsonResponse(data, safe=False)
+    
     except Exception as e:
-        logger.error(f'Error during login: {str(e)}')
-        return Response({'message': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

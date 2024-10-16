@@ -1,349 +1,197 @@
-import { useState, useEffect, useRef } from 'react';
-import { toast } from 'react-toastify';
-import moment from 'moment';
-import { MdSearch, MdRemoveRedEye, MdFilterAlt } from 'react-icons/md';
-import { Link } from 'react-router-dom';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
+// Conversation.js
+import React, { useState, useEffect } from 'react';
+import { Table, Form, Button, InputGroup, Row, Col, Pagination, Container } from 'react-bootstrap';
+import { FaEye } from 'react-icons/fa';
 
-import DataTableBase from '../DataTableBase';
-import '../../styles/datatablebase.css';
-import '../../styles/datepicker.css';
+const Conversations = () => {
+  const [conversations, setConversations] = useState([]);
+  const [filters, setFilters] = useState({
+    searchQuery: '',
+    strand: 'Overall',
+    schoolYear: '',
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [error, setError] = useState(null);
 
-const Conversation = () => {
-   const isMounted = useRef(false);
-   const [conversations, setConversations] = useState([]);
-   const [searchKey, setSearchKey] = useState('');
-
-   const [isLoading, setisLoading] = useState(false);
-   const [totalRows, setTotalRows] = useState(0);
-   const [rowsPerPage, setRowsPerPage] = useState(10);
-   const [sort, setSort] = useState('');
-   const [order, setOrder] = useState('');
-   const [resetPaginationToggle, setResetPaginationToggle] = useState(false);
-   const sortRef = useRef(null);
-
-   const [strandOptions, setStrandOptions] = useState([]);
-   const [inputs, setInputs] = useState({ strand: 'all' });
-   const { strand } = inputs;
-
-   const [filters, setFilters] = useState({ year: null }); // contains property that will be use for filters when fetching conversation
-   const [schoolYearStart, setSchoolYearStart] = useState(null);
-   const [isFilterByYear, setIsFilterByYear] = useState(false);
-
-   const search = e => {
-      e.preventDefault();
-      fetchConversation(1);
-      setResetPaginationToggle(prev => !prev);
-   };
-
-   const filter = async () => {
+  // Fetching conversations from the backend API
+  useEffect(() => {
+    const fetchConversations = async () => {
       try {
-         setisLoading(true);
-         const response = await fetch(
-            `/admin/conversations?page=${1}&size=${rowsPerPage}&search=${searchKey}&sort=${sort}&order=${order}&strand=${strand}&year=${
-               schoolYearStart ? schoolYearStart.getFullYear() : ''
-            }`,
-            {
-               headers: { token: localStorage.getItem('token') },
-            }
-         );
-         const data = await response.json();
+        const response = await fetch('http://localhost:8000/get-conversations/', {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json',
+          },
+        });
 
-         if (isMounted.current && response.status === 200) {
-            setConversations(data.conversations);
-            setTotalRows(data.total);
-            setisLoading(false);
-            setFilters({ year: schoolYearStart });
-            setResetPaginationToggle(prev => !prev);
-         } else toast.error(data.message);
-      } catch (err) {
-         console.error(err.message);
+        if (!response.ok) {
+          throw new Error(`Error: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        if (data.conversations) {
+          setConversations(data.conversations);
+        } else {
+          throw new Error('Invalid response structure');
+        }
+      } catch (error) {
+        console.error('Failed to fetch conversations:', error);
+        setError(error.message);
       }
-   };
+    };
 
-   const handleSort = async (column, sortDirection) => {
-      // plus(+) to convert date to timestamp date
-      // workaround for react-data-table bug: onChangePage trigger when doing onSort to other page expcept page 1
-      sortRef.current = +new Date();
+    fetchConversations();
+  }, []);
 
-      try {
-         setisLoading(true);
-         const response = await fetch(
-            `/admin/conversations?page=${1}&size=${rowsPerPage}&search=${searchKey}&sort=${
-               column.sortField
-            }&order=${sortDirection}&strand=${strand}&year=${schoolYearStart ? schoolYearStart.getFullYear() : ''}`,
-            {
-               headers: { token: localStorage.getItem('token') },
-            }
-         );
-         const data = await response.json();
+  // Function to format date
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString();
+  };
 
-         if (response.status === 200) {
-            setConversations(data.conversations);
-            setTotalRows(data.total);
-            setSort(column.sortField);
-            setOrder(sortDirection);
-            setResetPaginationToggle(prev => !prev);
-            setisLoading(false);
-         } else toast.error(data.message);
-      } catch (err) {
-         console.error(err.message);
-      }
-   };
+  // Handle search and filter changes
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters((prevFilters) => ({
+      ...prevFilters,
+      [name]: value,
+    }));
+  };
 
-   const fetchConversation = async page => {
-      try {
-         setisLoading(true);
-         const response = await fetch(
-            `/admin/conversations?page=${page}&size=${rowsPerPage}&search=${searchKey}&sort=${sort}&order=${order}&strand=${strand}&year=${
-               filters.year ? filters.year.getFullYear() : ''
-            }`,
-            {
-               headers: { token: localStorage.getItem('token') },
-            }
-         );
-         const data = await response.json();
+  // Handle pagination
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentConversations = conversations.slice(indexOfFirstItem, indexOfLastItem);
 
-         if (isMounted.current && response.status === 200) {
-            setConversations(data.conversations);
-            setTotalRows(data.total);
-            setisLoading(false);
-         } else toast.error(data.message);
-      } catch (err) {
-         console.error(err.message);
-      }
-   };
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
-   const handlePageChange = page => {
-      // plus(+) to convert date to timestamp date
-      // workaround for react-data-table bug: onChangePage trigger when doing onSort to other page expcept page 1
-      // only trigger onChangePage when Page change and not other way around
-      const now = +new Date();
-      if (now - sortRef.current < 500) return;
-      fetchConversation(page);
-   };
+  return (
+    <Container fluid>
+      {/* Main Content */}
+      <Col xs={10} className="p-4">
+        <h2 className="fw-bold text-center mb-4">Conversations</h2>
 
-   const handleRowsPerPageChange = async (newPerPage, page) => {
-      try {
-         setisLoading(true);
-         const response = await fetch(
-            `/admin/conversations?page=${page}&size=${newPerPage}&search=${searchKey}&sort=${sort}&order=${order}&strand=${strand}&year=${
-               filters.year ? filters.year.getFullYear() : ''
-            }`,
-            {
-               headers: { token: localStorage.getItem('token') },
-            }
-         );
-         const data = await response.json();
+        {error && <div className="alert alert-danger">{error}</div>}
 
-         if (response.status === 200) {
-            setConversations(data.conversations);
-            setRowsPerPage(newPerPage);
-            setisLoading(false);
-         } else toast.error(data.message);
-      } catch (err) {
-         console.error(err.message);
-      }
-   };
+        {/* Search and Filters */}
+        <Row className="mb-4">
+          <Col md={6}>
+            <InputGroup>
+              <Form.Control
+                type="text"
+                placeholder="Search by name (e.g. John Doe)"
+                name="searchQuery"
+                value={filters.searchQuery}
+                onChange={handleFilterChange}
+              />
+              <Button variant="warning">
+                <i className="fa fa-search"></i>
+              </Button>
+            </InputGroup>
+          </Col>
+          <Col md={2}>
+            <Form.Select name="strand" value={filters.strand} onChange={handleFilterChange}>
+              <option value="Overall">All</option>
+              <option value="STEM">STEM</option>
+              <option value="ABM">ABM</option>
+              <option value="HUMSS">HUMSS</option>
+              <option value="ARTS & DESIGN">ARTS & DESIGN</option>
+              <option value="TVL - Information and Communications Technology">
+                TVL - Information and Communications Technology
+              </option>
+              <option value="TVL - Home Economics">TVL - Home Economics</option>
+              <option value="TVL - Agri-Fishery Arts">TVL - Agri-Fishery Arts</option>
+              <option value="TVL - Industrial Arts">TVL - Industrial Arts</option>
+            </Form.Select>
+          </Col>
+          <Col md={2}>
+            <Form.Control
+              type="text"
+              name="schoolYear"
+              placeholder="School Year (e.g., 2022)"
+              value={filters.schoolYear}
+              onChange={handleFilterChange}
+            />
+          </Col>
+          <Col md={2}>
+            <Button variant="warning" className="w-100">
+              <i className="fa fa-filter"></i> Filter
+            </Button>
+          </Col>
+        </Row>
 
-   const columns = [
-      {
-         name: 'Date',
-         selector: row => row.createdAt,
-         format: row => moment(row.createdAt).format('L'),
-         sortable: true,
-         sortField: 'createdAt',
-      },
-      {
-         name: 'Student Name',
-         selector: row => row.name,
-         sortable: true,
-         sortField: 'name',
-      },
-      {
-         name: 'Age',
-         selector: row => row.age,
-         sortable: true,
-         sortField: 'age',
-      },
-      {
-         name: 'Sex',
-         selector: row => row.sex,
-         sortable: true,
-         sortField: 'sex',
-      },
-      {
-         name: 'Strand',
-         selector: row => row.strand,
-      },
-      {
-         name: 'RIASEC Code',
-         selector: row => (
-            <h1 className='h6 custom-heading m-0'>
-               {row.riasec_code[0][1]
-                  ? `${row.riasec_code[0][0].charAt(0)}${row.riasec_code[1][1] ? row.riasec_code[1][0].charAt(0) : ''}${
-                       row.riasec_code[2][1] ? row.riasec_code[2][0].charAt(0) : ''
-                    }`.toUpperCase()
-                  : 'N/A'}
-            </h1>
-         ),
-      },
-      {
-         name: 'Actions',
-         center: true,
-         cell: row => (
-            <Link to={row._id}>
-               <MdRemoveRedEye className='actions-btn' />{' '}
-            </Link>
-         ),
-      },
-   ];
+        {/* Conversations Table */}
+        <Table striped bordered hover responsive>
+          <thead style={{ backgroundColor: 'var(--primary)', color: '#fff' }}>
+            <tr>
+              <th className="text-center">Date</th>
+              <th className="text-center">Student Name</th>
+              <th className="text-center">Age</th>
+              <th className="text-center">Sex</th>
+              <th className="text-center">Strand</th>
+              <th className="text-center">RIASEC Code</th>
+              <th className="text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentConversations.length > 0 ? (
+              currentConversations.map((conversation, index) => (
+                <tr key={index}>
+                  <td className="text-center">{formatDate(conversation.created_at)}</td>
+                  <td className="text-center">{conversation.name || 'N/A'}</td>
+                  <td className="text-center">{conversation.age || 'N/A'}</td>
+                  <td className="text-center">{conversation.sex || 'N/A'}</td>
+                  <td className="text-center">{conversation.strand || 'N/A'}</td>
+                  <td className="text-center">{conversation.riasec_code || 'N/A'}</td>
+                  <td className="text-center">
+                    <Button variant="link" className="text-warning">
+                      <FaEye />
+                    </Button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="7" className="text-center">No conversations available</td>
+              </tr>
+            )}
+          </tbody>
+        </Table>
 
-   const handleFilterStrandChange = e => {
-      const strandValue = e.target.value.includes('&') ? e.target.value.replace('&', '%26') : e.target.value;
-      setInputs(prev => ({ ...prev, strand: strandValue }));
-   };
-
-   const fetchDistinctStrand = async () => {
-      try {
-         const response = await fetch('/admin/courses-distinct-strand', {
-            headers: { token: localStorage.getItem('token') },
-         });
-         const data = await response.json();
-
-         if (isMounted.current && response.status === 200) {
-            setStrandOptions(data);
-         } else toast.error(data.message);
-      } catch (err) {
-         console.log(err.message);
-      }
-   };
-
-   const handleIsFilterByYearChange = e => {
-      if (e.target.checked) setIsFilterByYear(e.target.checked);
-      else {
-         setIsFilterByYear(e.target.checked);
-         setSchoolYearStart(null);
-      }
-   };
-
-   const Loading = () => {
-      return (
-         <div className='p-5'>
-            <div className='spinner-border spinner-lg text-primary' role='status'></div>
-         </div>
-      );
-   };
-
-   useEffect(() => {
-      isMounted.current = true;
-      fetchDistinctStrand();
-      fetchConversation(1);
-
-      return () => {
-         isMounted.current = false;
-      };
-   }, []);
-
-   return (
-      <div className='admin-contents px-4 pb-4'>
-         <h1 className='h3 custom-heading mt-3 mb-2'>Conversation</h1>
-         <div className='d-flex flex-wrap justify-content-between align-items-center'>
-            <form className='mb-3' onSubmit={search} style={{ width: '30%' }}>
-               <div className='input-group flex-nowrap'>
-                  <input
-                     className='form-control'
-                     value={searchKey}
-                     type='search'
-                     name='search'
-                     id='search'
-                     placeholder='Search by name (e.g. John Doe)'
-                     onChange={e => setSearchKey(e.target.value)}
-                  />
-                  <button className='btn btn-primary' type='submit'>
-                     <MdSearch className='icon-small' />
-                  </button>
-               </div>
-            </form>
-
-            <div className='d-flex mb-3'>
-               <div className='d-flex align-items-center me-3'>
-                  <span className='text-sm me-3'>Strand: </span>
-                  <select className='form-select' name='strand' id='strand' onChange={handleFilterStrandChange} disabled={isLoading}>
-                     <option value='all'>Overall</option>
-                     {strandOptions &&
-                        strandOptions.map((strand, i) => (
-                           <option className='text-wrap' key={i} value={strand}>
-                              {strand}
-                           </option>
-                        ))}
-                  </select>
-               </div>
-
-               <div className='d-flex align-items-center me-3'>
-                  <div className='form-check'>
-                     <input
-                        className='form-check-input me-2'
-                        type='checkbox'
-                        value={isFilterByYear}
-                        checked={isFilterByYear}
-                        id='isFilterByYear'
-                        name='isFilterByYear'
-                        onChange={handleIsFilterByYearChange}
-                     />
-                     <span className='text-sm me-2'>School Year:</span>
-                  </div>
-                  <div>
-                     <DatePicker
-                        className='form-control datepicker'
-                        disabled={!isFilterByYear}
-                        selected={schoolYearStart}
-                        onChange={date => setSchoolYearStart(date)}
-                        showYearPicker
-                        dateFormat='yyyy'
-                     />
-                  </div>
-                  <div className='mx-1'>-</div>
-                  <div>
-                     <input
-                        type='text'
-                        name='end-year'
-                        id='year'
-                        className='form-control me-2 datepicker'
-                        disabled
-                        value={schoolYearStart ? schoolYearStart.getFullYear() + 1 : ''}
-                     />
-                  </div>
-               </div>
-               <button className='btn btn-primary btn-sm' onClick={filter} disabled={isLoading}>
-                  <MdFilterAlt className='icon-small me-1' /> Filter
-               </button>
+        {/* Pagination */}
+        <Row>
+          <Col md={6}>
+            <div>Items per page: 
+              <Form.Select
+                style={{ width: '80px', display: 'inline-block' }}
+                value={itemsPerPage}
+                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+              </Form.Select>
             </div>
-         </div>
-
-         <DataTableBase
-            columns={columns}
-            data={conversations}
-            responsive
-            highlightOnHover
-            fixedHeader
-            persistTableHead
-            fixedHeaderScrollHeight='65vh'
-            progressPending={isLoading}
-            progressComponent={<Loading />}
-            pagination
-            paginationServer
-            paginationTotalRows={totalRows}
-            onChangeRowsPerPage={handleRowsPerPageChange}
-            onChangePage={handlePageChange}
-            paginationComponentOptions={{ rowsPerPageText: 'Item per page:', selectAllRowsItem: true, selectAllRowsItemText: 'All' }}
-            paginationResetDefaultPage={resetPaginationToggle}
-            sortServer
-            onSort={handleSort}
-         />
-      </div>
-   );
+          </Col>
+          <Col md={6}>
+            <Pagination className="float-end">
+              <Pagination.First />
+              <Pagination.Prev />
+              <Pagination.Item onClick={() => paginate(1)}>1</Pagination.Item>
+              <Pagination.Item onClick={() => paginate(2)}>2</Pagination.Item>
+              <Pagination.Item onClick={() => paginate(3)}>3</Pagination.Item>
+              <Pagination.Next />
+              <Pagination.Last />
+            </Pagination>
+          </Col>
+        </Row>
+      </Col>
+    </Container>
+  );
 };
 
-export default Conversation;
+export default Conversations;

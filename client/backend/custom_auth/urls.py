@@ -15,7 +15,8 @@ from .views import (
     get_distinct_strands, 
     check_login_status,
     check_terms_agreement,
-    agree_to_terms, # Import the get_distinct_strands view
+    agree_to_terms,
+    get_dashboard_data, # Import the get_distinct_strands view
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from custom_auth import views
@@ -39,5 +40,6 @@ urlpatterns = [
     path('check_login_status/', check_login_status, name='check_login_status'),  # Add check_login_status URL
     path('api/check_terms_agreement/', check_terms_agreement, name='check_terms_agreement'),
     path('api/agree_to_terms/', agree_to_terms, name='agree_to_terms'),
+    path('api/dashboard/', get_dashboard_data, name='get_dashboard_data'),
 
 ]
