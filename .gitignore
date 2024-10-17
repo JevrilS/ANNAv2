@@ -1,20 +1,23 @@
-# Ignore Python virtual environment
-client/backend/myenv/
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
 
-# Ignore build files
-client/backend/build/
-client/backend/dist/
-client/backend/*.egg-info/
+# Django stuff:
+db.sqlite3
+staticfiles/
 
-# Ignore compiled Python files
-client/backend/**/*.pyc
-client/backend/**/__pycache__/
+# Virtual environments
+myenv/
+venv/
 
-# Ignore logs
-client/backend/logs/
-client/backend/*.log
+# Environment variables and sensitive files
+*.env
 
-# Ignore other environment-specific files
-client/backend/.env
-client/backend/.DS_Store
-/node_modules
+# Node modules (in case you have them somewhere)
+node_modules/
+
+# Other IDE-specific or OS-specific files (optional)
+*.log
+.DS_Store
+*.swp
