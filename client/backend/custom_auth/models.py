@@ -126,7 +126,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     mobile_no = models.CharField(max_length=20)
     sex = models.CharField(max_length=10)
-    strand = models.CharField(max_length=10)
+    strand = models.CharField(max_length=50)
     grade_level = models.CharField(max_length=2)
     school = models.ForeignKey('School', on_delete=models.SET_NULL, null=True, db_column='school_id')
     is_active = models.BooleanField(default=True)

@@ -76,7 +76,7 @@ def save_conversation(request):
         name = data.get('name')
         age = data.get('age')
         sex = data.get('sex')
-        strand = data.get('strand')
+        strand = data.get('strand', '').upper()  # Convert strand to uppercase
         riasec_code = data.get('riasec_code', [])
         riasec_courses = data.get('riasec_course_recommendation', [])
         strand_courses = data.get('strand_course_recommendation', [])
@@ -93,8 +93,7 @@ def save_conversation(request):
             name=name,
             age=age,
             sex=sex,
-            strand=strand,
-            # Remove grade_level from this section
+            strand=strand,  # Save the uppercased strand
             riasec_code=json.dumps(riasec_code),  # Store RIASEC code as JSON
             riasec_course_recommendation=json.dumps(riasec_courses),  # Store RIASEC course recommendations as JSON
             strand_course_recommendation=json.dumps(strand_courses),  # Store strand course recommendations as JSON
@@ -274,14 +273,13 @@ def get_distinct_strands(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_conversations(request):
     try:
         # Get filters from the request
         search_query = request.GET.get('search', '')
-        strand = request.GET.get('strand', '')
+        strand = request.GET.get('strand', '').upper()  # Convert strand to uppercase
         school_year = request.GET.get('school_year', '')
 
         # Check if the user is a superuser
@@ -298,7 +296,7 @@ def get_conversations(request):
 
         # Apply strand filter
         if strand and strand != 'Overall':
-            conversations = conversations.filter(strand=strand)
+            conversations = conversations.filter(strand=strand)  # Filter by uppercased strand
 
         # Apply school year filter (filter by the year of the created_at field)
         if school_year and school_year != 'Overall':
@@ -345,6 +343,7 @@ def get_conversations(request):
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_user_conversations(request, user_id):
@@ -493,14 +492,13 @@ def guidance_login_view(request):
 from django.db.models import Q
 from django.db.models.functions import ExtractYear
 from django.core.exceptions import ValidationError
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_dashboard_data(request):
     try:
         # Get filters from the request
         search_query = request.GET.get('search', '')
-        strand = request.GET.get('strand', '')
+        strand = request.GET.get('strand', '').upper()  # Convert the strand to uppercase
         school_year = request.GET.get('school_year', '')
 
         # Fetch all conversations data
@@ -510,9 +508,9 @@ def get_dashboard_data(request):
         if search_query:
             conversations = conversations.filter(Q(name__icontains=search_query))
 
-        # Apply strand filter
-        if strand and strand != 'Overall':
-            conversations = conversations.filter(strand=strand)
+        # Apply strand filter (ensure case-insensitive matching)
+        if strand and strand != 'OVERALL':
+            conversations = conversations.filter(strand__iexact=strand)  # Case-insensitive exact match
 
         # Apply school year filter (filter by the year of the created_at field)
         if school_year and school_year != 'Overall':

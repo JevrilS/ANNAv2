@@ -242,16 +242,20 @@ function AccountDetails() {
 </select>
                       </div>
                       <div className="col-md-6 mb-3">
-                        <label htmlFor="strand" className="form-label">Strand</label>
-                        <select className="form-select" id="strand" value={formData.strand} onChange={handleChange} required>
-                          <option value="" hidden>Strand</option>
-                          <option value="ABM">ABM</option>
-                          <option value="ARTSDESIGN">ARTS&DESIGN</option>
-                          <option value="STEM">STEM</option>
-                          <option value="HUMMS">HUMMS</option>
-                          <option value="TVL">TVL</option>
-                        </select>
-                      </div>
+                      <label htmlFor="strand" className="form-label">Strand</label>
+                      <select className="form-select" id="strand" value={formData.strand} onChange={handleChange} required>
+                        <option value="" hidden>Strand</option>
+                        <option value="ABM">ABM</option>
+                        <option value="ARTSDESIGN">ARTS&DESIGN</option>
+                        <option value="STEM">STEM</option>
+                        <option value="HUMSS">HUMSS</option>
+                        <option value="TVL - Information and Communications Technology">TVL - Information and Communications Technology</option>
+                        <option value="TVL - Home Economics">TVL - Home Economics</option>
+                        <option value="TVL - Agri-Fishery Arts">TVL - Agri-Fishery Arts</option>
+                        <option value="TVL - Industrial Arts">TVL - Industrial Arts</option>
+                      </select>
+                    </div>
+
                       <div className="col-md-6 mb-3">
                         <label htmlFor="sex" className="form-label">Sex</label>
                         <select className="form-select" id="sex" value={formData.sex} onChange={handleChange} required>

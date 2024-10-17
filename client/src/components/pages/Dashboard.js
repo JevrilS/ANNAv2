@@ -174,7 +174,6 @@ const Dashboard = () => {
     });
   };
   
-
   const getFilteredData = () => {
     let filteredData = dashboardData;
 
@@ -182,62 +181,66 @@ const Dashboard = () => {
     console.log('Current Filters:', filters);
     console.log('Dashboard Data:', dashboardData);
 
-    // Filtering logic
+    // Filtering logic (normalize to uppercase for both data and filter)
     if (filters.gradeLevel !== 'Overall') {
       filteredData = filteredData.filter((d) => d.grade_level === filters.gradeLevel);
     }
 
     if (filters.strand !== 'Overall') {
-      filteredData = filteredData.filter((d) => d.strand === filters.strand);
+      filteredData = filteredData.filter((d) => d.strand.toUpperCase() === filters.strand.toUpperCase());
     }
 
     console.log('Filtered Data:', filteredData);  // Check what data is returned
     return filteredData;
+};
+
+
+const getRiasecChartData = () => {
+  const filteredData = getFilteredData();
+
+  const totalScores = {
+    realistic: 0,
+    investigative: 0,
+    artistic: 0,
+    social: 0,
+    enterprising: 0,
+    conventional: 0,
   };
 
+  const strandScores = {
+    ABM: { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
+    ARTSDESIGN: { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
+    STEM: { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
+    HUMSS: { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
+    'TVL - Information and Communications Technology': { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
+    'TVL - Home Economics': { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
+    'TVL - Agri-Fishery Arts': { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
+    'TVL - Industrial Arts': { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
+  };
 
+  filteredData.forEach((conversation) => {
+    totalScores.realistic += conversation.realistic_score;
+    totalScores.investigative += conversation.investigative_score;
+    totalScores.artistic += conversation.artistic_score;
+    totalScores.social += conversation.social_score;
+    totalScores.enterprising += conversation.enterprising_score;
+    totalScores.conventional += conversation.conventional_score;
 
-  const getRiasecChartData = () => {
-    const filteredData = getFilteredData();
+    // Normalize the strand names to avoid case-sensitivity issues
+    const normalizedStrand = conversation.strand.toLowerCase();
 
-    const totalScores = {
-      realistic: 0,
-      investigative: 0,
-      artistic: 0,
-      social: 0,
-      enterprising: 0,
-      conventional: 0,
-    };
-
-    const strandScores = {
-      ABM: { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
-      ARTSDESIGN: { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
-      STEM: { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
-      HUMSS: { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
-      'TVL - Information and Communications Technology': { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
-      'TVL - Home Economics': { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
-      'TVL - Agri-Fishery Arts': { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
-      'TVL - Industrial Arts': { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
-    };
-
-    filteredData.forEach((conversation) => {
-      totalScores.realistic += conversation.realistic_score;
-      totalScores.investigative += conversation.investigative_score;
-      totalScores.artistic += conversation.artistic_score;
-      totalScores.social += conversation.social_score;
-      totalScores.enterprising += conversation.enterprising_score;
-      totalScores.conventional += conversation.conventional_score;
-
-      // Update the respective strand scores
-      if (strandScores[conversation.strand]) {
-        strandScores[conversation.strand].realistic += conversation.realistic_score;
-        strandScores[conversation.strand].investigative += conversation.investigative_score;
-        strandScores[conversation.strand].artistic += conversation.artistic_score;
-        strandScores[conversation.strand].social += conversation.social_score;
-        strandScores[conversation.strand].enterprising += conversation.enterprising_score;
-        strandScores[conversation.strand].conventional += conversation.conventional_score;
+    // Update the respective strand scores
+    Object.keys(strandScores).forEach(strandKey => {
+      if (strandKey.toLowerCase() === normalizedStrand) {
+        strandScores[strandKey].realistic += conversation.realistic_score;
+        strandScores[strandKey].investigative += conversation.investigative_score;
+        strandScores[strandKey].artistic += conversation.artistic_score;
+        strandScores[strandKey].social += conversation.social_score;
+        strandScores[strandKey].enterprising += conversation.enterprising_score;
+        strandScores[strandKey].conventional += conversation.conventional_score;
       }
     });
+  });
 
     return {
       labels: ['Realistic', 'Investigative', 'Artistic', 'Social', 'Enterprising', 'Conventional'],

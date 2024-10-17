@@ -207,14 +207,23 @@ const handleLogout = () => {
   toast.success('Logged out successfully!');
   window.location.reload();  // Reload the window to apply changes
 };
-
 const handleRegister = async (e) => {
   e.preventDefault();
   const csrftoken = getCookie('csrftoken');
-  console.log('Form Data: ', formData); // Log form data to console for debugging
+  
+  // Capitalize the strand before sending the form data
+  const capitalizedStrand = formData.strand.toUpperCase();
+
+  // Update formData with the capitalized strand
+  const updatedFormData = {
+    ...formData,
+    strand: capitalizedStrand,  // Update the strand to be capitalized
+  };
+
+  console.log('Form Data: ', updatedFormData); // Log form data to console for debugging
 
   try {
-    const response = await api.post('/register/', formData, {
+    const response = await api.post('/register/', updatedFormData, {
       headers: {
         'Content-Type': 'application/json',
         'X-CSRFToken': csrftoken,
@@ -230,10 +239,11 @@ const handleRegister = async (e) => {
       toast.error(response.data.message);
     }
   } catch (error) {
-    console.error('Registration Error:', error.response.data);
-    toast.error(error.response.data.message);
+    console.error('Registration Error:', error.response?.data || error.message);
+    toast.error(error.response?.data?.message || 'An error occurred during registration');
   }
 };
+
 const checkAuthStatus = async () => {
   const token = localStorage.getItem('authToken'); // Get token from localStorage
 
