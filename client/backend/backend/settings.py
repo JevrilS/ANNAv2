@@ -4,7 +4,21 @@ from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
 from google.oauth2 import service_account
+# Function to get allowed origins
+def get_cors_allowed_origins():
+    try:
+        try:
+            from custom_auth.models import AllowedOrigin  # Import models here to avoid AppRegistryNotReady error
+        except ImportError:
+            print("Error: custom_auth.models.AllowedOrigin could not be imported.")
+            return []
+        return [origin.origin for origin in AllowedOrigin.objects.all()]  # Return a list of allowed origins
+    except Exception as e:
+        print(f"Error fetching allowed origins: {e}")
+        return []  # Fallback in case of error
 
+# CORS settings
+CORS_ALLOWED_ORIGINS = get_cors_allowed_origins()
 # Load environment variables from .env file
 load_dotenv()
 
@@ -60,7 +74,7 @@ ADMIN_GOOGLE_CLIENT_EMAIL = os.getenv('ADMIN_GOOGLE_CLIENT_EMAIL')
 # Security settings
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-0(lkz%-&m^)ow+n&vk=se9!@rg@2#&gu3pe6&40_q-j)wvbltj')
 DEBUG = True
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'UIC.localhost', 'school1.localhost', 'uic.localhost', 'school1.localhost:3000']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'UIC.localhost', 'school1.localhost', 'uic.localhost', 'school1.localhost:3000', ]
 
 # Django REST framework settings
 REST_FRAMEWORK = {
@@ -91,6 +105,10 @@ CORS_ALLOWED_ORIGINS = [
     "http://school1.localhost:8000",
     "http://uic.localhost:8000",
     "http://uic.localhost:3000",
+    
+    
+
+    
 ]
 
 CORS_ALLOW_HEADERS = ["accept", "accept-encoding", "authorization", "content-type", "dnt", "origin", "user-agent", "x-csrftoken", "x-requested-with"]
@@ -152,6 +170,7 @@ LOGGING = {
 MIDDLEWARE = [
     'django_tenants.middleware.main.TenantMainMiddleware', 
     'corsheaders.middleware.CorsMiddleware', 
+    'custom_auth.middleware.DynamicCorsMiddleware',  # Add this after the default CORS middleware
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',

@@ -6,6 +6,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.contrib.auth.models import User
 from django.conf import settings
+from django_tenants.utils import schema_context, get_tenant_model
 
 class Client(TenantMixin):
     """
@@ -30,6 +31,8 @@ class Domain(DomainMixin):
     def __str__(self):
         return self.domain
 
+from django_tenants.utils import schema_context, get_tenant_model
+
 class MyUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -52,6 +55,22 @@ class MyUserManager(BaseUserManager):
         extra_fields.setdefault('is_superuser', True)
         return self.create_user(email, password, **extra_fields)
 
+    def get_users_for_tenant(self, tenant):
+        """Fetch users belonging to a specific tenant"""
+        with schema_context(tenant.schema_name):
+            return self.get_queryset()
+
+    def get_all_users(self):
+        """Fetch users from all tenants for superadmin"""
+        users = []
+        tenant_model = get_tenant_model()
+        tenants = tenant_model.objects.all()
+        for tenant in tenants:
+            with schema_context(tenant.schema_name):
+                tenant_users = self.get_queryset()
+                users.extend(list(tenant_users))
+        return users
+
 
 
 
@@ -65,8 +84,6 @@ class Conversation(models.Model):
     sex = models.CharField(max_length=20)
     strand = models.CharField(max_length=255)
     
-    # Add the grade_level field, nullable for existing data
-    grade_level = models.CharField(max_length=10, null=True, blank=True)  # New field with null=True
     
     realistic_score = models.IntegerField(default=0)
     investigative_score = models.IntegerField(default=0)
@@ -102,7 +119,6 @@ class School(models.Model):
 class User(AbstractBaseUser, PermissionsMixin):
     USER_TYPES = (
         ('student', 'Student'),
-        ('guidance', 'Guidance'),
     )
     
     id_no = models.CharField(max_length=20, unique=True)
@@ -195,3 +211,8 @@ class PublicUser(models.Model):
 
     def __str__(self):
         return self.email
+class AllowedOrigin(models.Model):
+    origin = models.URLField(unique=True)
+
+    def __str__(self):
+        return self.origin

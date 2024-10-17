@@ -2,22 +2,45 @@ from django.contrib import admin
 from django_tenants.admin import TenantAdminMixin
 from .models import User, UserProfile, Client, Domain, School
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django_tenants.utils import get_tenant_model
+
+# Custom filter to allow filtering by tenant name (Client)
+class TenantFilter(admin.SimpleListFilter):
+    title = 'Tenant'  # Displayed title in the admin filter
+    parameter_name = 'tenant'  # URL parameter for filtering
+
+    def lookups(self, request, model_admin):
+        """Provide a list of tenants to filter by."""
+        tenants = Client.objects.all()
+        return [(tenant.id, tenant.name) for tenant in tenants]
+
+    def queryset(self, request, queryset):
+        """Filter the queryset based on the selected tenant."""
+        if self.value():
+            return queryset.filter(school__client_id=self.value())
+        return queryset
 
 # Custom UserAdmin for the User model, specific to guidance users
 class GuidanceUserAdmin(BaseUserAdmin):
-    # Fields to display in the admin list view
-    list_display = ('email', 'full_name', 'is_active', 'is_staff')
-    list_filter = ('is_active', 'is_staff', 'school')
+    list_display = ('email', 'full_name', 'is_active', 'is_staff', 'school')
+    list_filter = ('is_active', 'is_staff', TenantFilter)  # Add TenantFilter here
     search_fields = ('email', 'full_name', 'school__school_des')
 
-    # Fields to display when editing a user
+    def get_queryset(self, request):
+        """Filter users based on tenant or allow SuperAdmin to view all users."""
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return User.objects.all()  # Superadmin sees all users across tenants
+        else:
+            tenant = request.tenant  # Filter by the current tenant's schema
+            return qs.filter(school__client=tenant)
+
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
         ('Personal info', {'fields': ('full_name', 'mobile_no', 'sex', 'strand', 'grade_level', 'school')}),
-        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}), 
     )
 
-    # Fields to display when adding a new user
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
@@ -28,13 +51,6 @@ class GuidanceUserAdmin(BaseUserAdmin):
     ordering = ('email',)
     filter_horizontal = ('groups', 'user_permissions',)
 
-    # Automatically set user_type to 'guidance' when saving
-    def save_model(self, request, obj, form, change):
-        if not obj.pk:  # If the user is being created
-            obj.user_type = 'guidance'  # Set user_type to 'guidance'
-        super().save_model(request, obj, form, change)
-
-# Register the custom UserAdmin (specific for guidance users)
 admin.site.register(User, GuidanceUserAdmin)
 
 # Admin class for UserProfile, linked to the User model
@@ -75,3 +91,10 @@ class DomainAdmin(admin.ModelAdmin):
 
 # Register the Domain model with the admin site
 admin.site.register(Domain, DomainAdmin)
+from .models import AllowedOrigin
+
+class AllowedOriginAdmin(admin.ModelAdmin):
+    list_display = ['origin']
+    search_fields = ['origin']
+
+admin.site.register(AllowedOrigin, AllowedOriginAdmin)

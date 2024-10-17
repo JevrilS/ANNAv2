@@ -33,6 +33,10 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from .models import Conversation
+from django.db.models import Q
+from django.core.exceptions import ValidationError
+from django.db.models.functions import ExtractYear
+
 @login_required
 def check_terms_agreement(request):
     # Get the user's profile and check if they have agreed to terms
@@ -61,7 +65,6 @@ def refresh_token(request):
         return Response({'access': str(new_access_token)}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
-
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -84,9 +87,6 @@ def save_conversation(request):
         enterprising_score = data.get('enterprising_score', 0)
         conventional_score = data.get('conventional_score', 0)
 
-        # Fetch grade_level from the authenticated user profile
-        grade_level = request.user.grade_level  # Assuming it's stored in the custom_auth_user model
-
         # Create a new conversation record, associate it with the authenticated user, and save to the Conversation model
         conversation = Conversation.objects.create(
             user=request.user,  # Associate with the authenticated user
@@ -94,7 +94,7 @@ def save_conversation(request):
             age=age,
             sex=sex,
             strand=strand,
-            grade_level=grade_level,  # Add grade_level when creating the conversation
+            # Remove grade_level from this section
             riasec_code=json.dumps(riasec_code),  # Store RIASEC code as JSON
             riasec_course_recommendation=json.dumps(riasec_courses),  # Store RIASEC course recommendations as JSON
             strand_course_recommendation=json.dumps(strand_courses),  # Store strand course recommendations as JSON
@@ -274,30 +274,68 @@ def get_distinct_strands(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_conversations(request):
     try:
-        # Retrieve all conversations for the authenticated user
-        conversations = Conversation.objects.filter(user=request.user)
-        
+        # Get filters from the request
+        search_query = request.GET.get('search', '')
+        strand = request.GET.get('strand', '')
+        school_year = request.GET.get('school_year', '')
+
+        # Check if the user is a superuser
+        if request.user.is_superuser:
+            # Retrieve all conversations for superuser
+            conversations = Conversation.objects.all()
+        else:
+            # Retrieve conversations specific to the authenticated user
+            conversations = Conversation.objects.filter(user=request.user)
+
+        # Apply search filter
+        if search_query:
+            conversations = conversations.filter(Q(name__icontains=search_query))
+
+        # Apply strand filter
+        if strand and strand != 'Overall':
+            conversations = conversations.filter(strand=strand)
+
+        # Apply school year filter (filter by the year of the created_at field)
+        if school_year and school_year != 'Overall':
+            try:
+                year = int(school_year.split('-')[0])
+                conversations = conversations.annotate(year=ExtractYear('created_at')).filter(year=year)
+            except (ValueError, ValidationError):
+                return JsonResponse({'error': 'Invalid school year format.'}, status=status.HTTP_400_BAD_REQUEST)
+
         # Prepare a list of conversations to return as JSON
         conversations_data = []
         for conversation in conversations:
+            try:
+                riasec_code = json.loads(conversation.riasec_code) if conversation.riasec_code else []
+                riasec_course_recommendation = json.loads(conversation.riasec_course_recommendation) if conversation.riasec_course_recommendation else []
+                strand_course_recommendation = json.loads(conversation.strand_course_recommendation) if conversation.strand_course_recommendation else []
+            except json.JSONDecodeError:
+                riasec_code = []
+                riasec_course_recommendation = []
+                strand_course_recommendation = []
+
             conversations_data.append({
+                'user_id': conversation.user.id,  # Include the user ID in the response
                 'name': conversation.name,
                 'age': conversation.age,
                 'sex': conversation.sex,
                 'strand': conversation.strand,
-                'riasec_code': json.loads(conversation.riasec_code),  # Parse JSON field
-                'riasec_course_recommendation': json.loads(conversation.riasec_course_recommendation),  # Parse JSON field
-                'strand_course_recommendation': json.loads(conversation.strand_course_recommendation),  # Parse JSON field
+                'riasec_code': riasec_code,
+                'riasec_course_recommendation': riasec_course_recommendation,
+                'strand_course_recommendation': strand_course_recommendation,
                 'realistic_score': conversation.realistic_score,
                 'investigative_score': conversation.investigative_score,
                 'artistic_score': conversation.artistic_score,
                 'social_score': conversation.social_score,
                 'enterprising_score': conversation.enterprising_score,
                 'conventional_score': conversation.conventional_score,
+                'created_at': conversation.created_at
             })
 
         # Return the conversation data as JSON
@@ -307,6 +345,29 @@ def get_conversations(request):
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_conversations(request, user_id):
+    try:
+        # Fetch the user by ID
+        user = User.objects.get(id=user_id)
+        user_serializer = UserSerializer(user)
+        
+        # Fetch all conversations for this user
+        conversations = Conversation.objects.filter(user=user)
+        conversation_serializer = ConversationSerializer(conversations, many=True)
+        
+        # Return both user and conversation data in one response
+        return Response({
+            'user': user_serializer.data,
+            'conversations': conversation_serializer.data
+        }, status=status.HTTP_200_OK)
+    
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
 class ChangePasswordView(APIView):
@@ -429,12 +490,38 @@ def guidance_login_view(request):
     else:
         return Response({'error': 'Invalid credentials'}, status=400)
 
+from django.db.models import Q
+from django.db.models.functions import ExtractYear
+from django.core.exceptions import ValidationError
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_dashboard_data(request):
     try:
+        # Get filters from the request
+        search_query = request.GET.get('search', '')
+        strand = request.GET.get('strand', '')
+        school_year = request.GET.get('school_year', '')
+
         # Fetch all conversations data
         conversations = Conversation.objects.all()
+
+        # Apply search filter
+        if search_query:
+            conversations = conversations.filter(Q(name__icontains=search_query))
+
+        # Apply strand filter
+        if strand and strand != 'Overall':
+            conversations = conversations.filter(strand=strand)
+
+        # Apply school year filter (filter by the year of the created_at field)
+        if school_year and school_year != 'Overall':
+            try:
+                # Extract the first part of the school year, assuming it's in the format "2022-2023"
+                year = int(school_year.split('-')[0])
+                conversations = conversations.annotate(year=ExtractYear('created_at')).filter(year=year)
+            except (ValueError, ValidationError):
+                return JsonResponse({'error': 'Invalid school year format.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Prepare data for each conversation
         data = []
@@ -454,6 +541,30 @@ def get_dashboard_data(request):
             })
 
         return JsonResponse(data, safe=False)
-    
+
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_by_id(request, user_id):
+    """
+    Retrieve a user by their ID.
+    """
+    try:
+        user = User.objects.get(id=user_id)
+        serializer = UserSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    
+def tenant_users(request):
+    current_tenant = request.tenant  # Get the tenant from the request
+
+    # Filter users by the tenant's school
+    users = User.objects.filter(school__client=current_tenant)
+
+    return render(request, 'users_list.html', {'users': users})

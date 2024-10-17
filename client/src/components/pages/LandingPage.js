@@ -1,4 +1,5 @@
 // LandingPage.js
+import { Modal as BootstrapModal } from 'bootstrap'; // Import Bootstrap Modal instance methods
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import React, { useContext, useState, useEffect } from 'react';
 import Header from '../Header';
@@ -259,7 +260,27 @@ const checkAuthStatus = async () => {
   }
 };
 
+  // Remove any lingering backdrops or modal-open classes when a modal is hidden
+  const cleanupModals = () => {
+    document.body.classList.remove('modal-open');
+    const backdrop = document.querySelector('.modal-backdrop');
+    if (backdrop) backdrop.remove();
+  };
 
+  // Ensure cleanup when a modal closes
+  useEffect(() => {
+    if (!showLoginModal && !showRegisterModal) {
+      cleanupModals();
+    }
+  }, [showLoginModal, showRegisterModal]);
+
+  // Toggle between modals
+  const openRegisterFromLogin = () => {
+    setShowLoginModal(false); // Close login modal
+    setTimeout(() => {
+      setShowRegisterModal(true); // Open register modal after delay
+    }, 300); // Delay to ensure smooth transition
+  };
   const getCookie = (name) => {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
@@ -448,82 +469,89 @@ const checkAuthStatus = async () => {
         </div>
         <small className='w-100 d-block mt-5 p-2 text-center bg-primary-dark'>ANNA | Copyright © 2022</small>
       </footer>
-
-        <Modal
-      title='Login'
-      target='modal-login'
-      size='modal-lg'
-      show={showLoginModal}
-      onHide={() => setShowLoginModal(false)}
-      dialogClassName='login-modal' // Apply custom class for styling
-    >
-      <form onSubmit={handleLogin} className='login-form'>
-        <div className='d-flex flex-column align-items-center'>
-          <img src={anna} alt='Anna' className='mb-3' style={{ width: '150px', height: '150px' }} />
-          <h2 className='mb-3 modal-title'>Sign In</h2>
-        </div>
-        <div className='mb-3 input-group'>
-          <span className='input-group-text'>
-            <i className='fas fa-envelope'></i>
-          </span>
-          <input
-            type='email'
-            className='form-control'
-            id='loginEmail'
-            placeholder='Email'
-            required
-          />
-        </div>
-        <div className='mb-3 input-group'>
-          <span className='input-group-text'>
-            <i className='fas fa-lock'></i>
-          </span>
-          <input
-            type='password'
-            className='form-control'
-            id='loginPassword'
-            placeholder='Password'
-            required
-          />
-        </div>
-        <div className='d-flex justify-content-center w-100'>
-          <a
-            href='#changePasswordModal'
-            data-bs-toggle='modal'
-            className='forgot-password-link'
-          >
-            Forgot Password?
-          </a>
-        </div>
-        <div className='d-flex justify-content-center mt-3'>
-          <button className='btn btn-primary' type='submit'>
-            Login
-          </button>
-        </div>
-        <div className='text-center mt-3 dont-have-account'>
-          <span>
-            Don't have an account?
-            <button
-              type='button'
-              className='btn btn-link signup-button'
-              onClick={() => {
-                setShowLoginModal(false);
-                setShowRegisterModal(true);
-              }}
-            >
-              Sign Up
-            </button>
-          </span>
-        </div>
-      </form>
-    </Modal>
-
     <Modal
+  title='Login'
+  target='modal-login'
+  size='modal-lg'
+  show={showLoginModal}
+  onHide={() => setShowLoginModal(false)} // Closes the login modal
+  dialogClassName='login-modal' // Custom class for styling
+>
+  <form onSubmit={handleLogin} className='login-form'>
+    <div className='d-flex flex-column align-items-center'>
+      <img src={anna} alt='Anna' className='mb-3' style={{ width: '150px', height: '150px' }} />
+      <h2 className='mb-3 modal-title'>Sign In</h2>
+    </div>
+    <div className='mb-3 input-group'>
+      <span className='input-group-text'>
+        <i className='fas fa-envelope'></i>
+      </span>
+      <input
+        type='email'
+        className='form-control'
+        id='loginEmail'
+        placeholder='Email'
+        required
+      />
+    </div>
+    <div className='mb-3 input-group'>
+      <span className='input-group-text'>
+        <i className='fas fa-lock'></i>
+      </span>
+      <input
+        type='password'
+        className='form-control'
+        id='loginPassword'
+        placeholder='Password'
+        required
+      />
+    </div>
+    <div className='d-flex justify-content-center w-100'>
+      <a
+        href='#changePasswordModal'
+        data-bs-toggle='modal'
+        className='forgot-password-link'
+      >
+        Forgot Password?
+      </a>
+    </div>
+    <div className='d-flex justify-content-center mt-3'>
+      <button className='btn btn-primary' type='submit'>
+        Login
+      </button>
+    </div>
+    <div className='text-center mt-3 dont-have-account'>
+      <span>
+        Don't have an account?
+        <button
+          type='button'
+          className='btn btn-link signup-button'
+          onClick={() => {
+            // Get the login modal Bootstrap instance
+            const loginModal = BootstrapModal.getInstance(document.getElementById('modal-login'));
+            if (loginModal) {
+              loginModal.hide(); // Hide the login modal
+            }
+            // After login modal is hidden, show the register modal
+            setTimeout(() => {
+              setShowLoginModal(false); // Ensure Login modal state is false
+              setShowRegisterModal(true);  // Show Register modal
+            }, 300); // Slight delay to ensure smooth transition
+          }}
+        >
+          Sign Up
+        </button>
+      </span>
+    </div>
+  </form>
+</Modal>
+
+<Modal
   title="Register"
   target="modal-register"
   size="modal-md"
   show={showRegisterModal}
-  onHide={() => setShowRegisterModal(false)}
+  onHide={() => setShowRegisterModal(false)} // Closes the register modal
   dialogClassName="modal-dialog-centered register-modal" // Apply custom class for styling
 >
   <form onSubmit={handleRegister} className="register-form">
@@ -695,7 +723,7 @@ const checkAuthStatus = async () => {
         <option value="ABM">ABM</option>
         <option value="ARTSDESIGN">ARTS&DESIGN</option>
         <option value="STEM">STEM</option>
-        <option value="HUMMS">HUMMS</option>
+        <option value="HUMSS">HUMSS</option>
         <option value="TVL - Information and Communications Technology">
         TVL - Information and Communications Technology
         </option>
@@ -731,6 +759,7 @@ const checkAuthStatus = async () => {
     </div>
   </form>
 </Modal>
+
 
     </>
   );

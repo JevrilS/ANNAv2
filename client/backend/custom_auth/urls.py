@@ -41,5 +41,6 @@ urlpatterns = [
     path('api/check_terms_agreement/', check_terms_agreement, name='check_terms_agreement'),
     path('api/agree_to_terms/', agree_to_terms, name='agree_to_terms'),
     path('api/dashboard/', get_dashboard_data, name='get_dashboard_data'),
+    path('get-user/<int:user_id>/', views.get_user_by_id, name='get-user-by-id'),
 
 ]

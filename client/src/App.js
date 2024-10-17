@@ -1,5 +1,5 @@
 import './App.css';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ToastContainer, Flip } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import AccountDetails from './components/pages/AccountDetails';
@@ -8,7 +8,6 @@ import { useEffect, useState, useRef } from 'react';
 import { ChatbotContext } from './context/ChatbotContext';
 import { UserContext } from './context/UserContext';
 import AdminLogin from './components/pages/GuidanceLogin';
-import LandingPage from './components/pages/LandingPage';
 import Admin from './components/pages/Admin';
 import Dashboard from './components/pages/Dashboard';
 import Feedback from './components/pages/Feedback';
@@ -16,10 +15,11 @@ import Conversation from './components/pages/Conversation';
 import ConversationDetails from './components/pages/ConversationDetails';
 import PageNotFound from './components/pages/PageNotFound';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import LandingPage from './components/pages/LandingPage';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true); // Add loading state
+  const [loading, setLoading] = useState(true);
   const [isAgreeTermsConditions, setIsAgreeTermsConditions] = useState(false);
   const [showBot, setShowbot] = useState(true);
   const inputRef = useRef(null);
@@ -56,30 +56,36 @@ function App() {
     try {
       const token = localStorage.getItem('token');
       const refreshToken = localStorage.getItem('refreshToken');
-      console.log('Token:', token);
-
+      
       if (!token) {
+        console.log('No token found, setting isAuthenticated to false');
         setIsAuthenticated(false);
         setLoading(false);
         return;
       }
-
+  
+      console.log('Token found, verifying token');
       const response = await fetch('/auth/is-verify', { headers: { token } });
       const data = await response.json();
-
+  
       if (data === true) {
-        setIsAuthenticated(true); // Token is valid
+        console.log('Token is valid, setting isAuthenticated to true');
+        setIsAuthenticated(true);
         setLoading(false);
       } else if (data === false && refreshToken) {
-        // Token is invalid, try refreshing it
+        console.log('Token invalid, trying to refresh token');
         const refreshedToken = await refreshAccessToken();
         if (refreshedToken) {
-          setIsAuthenticated(true); // Refresh successful
+          setIsAuthenticated(true);
         } else {
-          setIsAuthenticated(false); // Refresh failed
+          console.log('Refresh token invalid, logging out');
+          setIsAuthenticated(false);
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
         }
         setLoading(false);
       } else {
+        console.log('Token invalid, no refresh token available, logging out');
         setIsAuthenticated(false);
         setLoading(false);
       }
@@ -87,9 +93,12 @@ function App() {
       console.error('Token verification failed:', err);
       setIsAuthenticated(false);
       setLoading(false);
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
     }
   };
 
+ 
   useEffect(() => {
     verify(); // Check authentication status on mount
   }, []);
@@ -122,41 +131,48 @@ function App() {
   };
 
   if (loading) {
-    // Show a loading screen while verifying
-    return <div>Loading...</div>;
+    return <div>Loading...</div>; // Show a loading screen while verifying
   }
 
   return (
     <ChatbotContext.Provider value={ChatbotContextValue}>
       <UserContext.Provider value={UserContextValue}>
         <Router>
-          <Routes>
-            {/* Set LandingPage as the default */}
-            <Route path='/' element={<LandingPage />} />
-
-            {/* Admin protected route */}
-            <Route path='/admin/*' element={isAuthenticated ? <Admin /> : <Navigate replace to='/admin/login' />}>
-              <Route path='dashboard' element={<Dashboard />} />
-              <Route path='feedback' element={<Feedback />} />
-              <Route path='conversation' element={<Conversation />} />
-              <Route path='conversation/:conversationId' element={<ConversationDetails />} />
-            </Route>
-
-            {/* Redirect to dashboard if authenticated, otherwise show login */}
-            <Route path='/admin/login' element={!isAuthenticated ? <AdminLogin /> : <Navigate replace to='/admin/dashboard' />} />
-            <Route path='/admin/dashboard' element={<Dashboard />} />
-
-            {/* Other routes */}
-            <Route path='/account' element={<AccountDetails />} />
-            <Route path='/result' element={<Results />} />
-
-            {/* Catch-all route for undefined paths */}
-            <Route path='*' element={<PageNotFound />} />
-          </Routes>
+          <AppRoutes isAuthenticated={isAuthenticated} />
         </Router>
-        <ToastContainer theme='light' transition={Flip} autoClose={2000} />
+        <ToastContainer theme="light" transition={Flip} autoClose={2000} />
       </UserContext.Provider>
     </ChatbotContext.Provider>
+  );
+}
+
+function AppRoutes({ isAuthenticated }) {
+  return (
+    <Routes>
+      {/* Set LandingPage as the default */}
+      <Route path='/' element={<LandingPage />} />
+
+      {/* Admin protected route */}
+      <Route
+        path="/admin/*"
+        element={isAuthenticated ? <Admin /> : <Navigate replace to="/admin/login" />}
+      >
+        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="feedback" element={<Feedback />} />
+        <Route path="conversation" element={<Conversation />} />
+        <Route path="conversation/:conversationId" element={<ConversationDetails />} />
+      </Route>
+
+      {/* Redirect to dashboard if authenticated, otherwise show login */}
+      <Route path="/admin/login" element={!isAuthenticated ? <AdminLogin /> : <Navigate replace to="/admin/dashboard" />} />
+
+      {/* Other routes */}
+      <Route path="/account" element={<AccountDetails />} />
+      <Route path="/result" element={<Results />} />
+
+      {/* Catch-all route for undefined paths */}
+      <Route path="*" element={<PageNotFound />} />
+    </Routes>
   );
 }
 

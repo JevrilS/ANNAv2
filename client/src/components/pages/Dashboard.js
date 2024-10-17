@@ -1,13 +1,18 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Container, Row, Col, Form, Button, Nav, Navbar } from 'react-bootstrap';
 import { Bar } from 'react-chartjs-2';
-import { Chart as ChartJS } from 'chart.js/auto';
+import { Chart as ChartJS, registerables } from 'chart.js';
 import FileSaver from 'file-saver';
 import { CSVLink } from 'react-csv';
 import html2canvas from 'html2canvas';
 import { useNavigate } from 'react-router-dom';
-import { FaHome, FaCommentDots, FaClipboardList } from 'react-icons/fa';  // Import icons
+import { FaHome, FaCommentDots, FaClipboardList } from 'react-icons/fa';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
+import { Dropdown, DropdownButton } from 'react-bootstrap';
 
+
+// Register Chart.js components and plugins
+ChartJS.register(...registerables, ChartDataLabels);
 // Token refresh function
 const refreshAccessToken = async (navigate) => {
   try {
@@ -33,13 +38,57 @@ const refreshAccessToken = async (navigate) => {
   }
 };
 
+const chartOptionsWithAdjustedPadding = {
+  responsive: true,
+  maintainAspectRatio: false,
+  aspectRatio: 2,  // Increase aspect ratio to make the chart wider
+  layout: {
+    padding: {
+      top: 20,
+      bottom: 20,  // Add some padding to the bottom
+      left: 20,
+      right: 20,
+    },
+  },
+  plugins: {
+    legend: {
+      display: true,
+      position: 'bottom',  // Move the legend to the bottom
+    },
+    datalabels: {
+      anchor: 'end',
+      align: 'top',
+      color: '#333',
+      font: {
+        weight: 'bold',
+        size: 12,  // Adjust font size
+      },
+      formatter: (value) => value,
+      offset: 4,  // Slight offset to prevent overlap
+    },
+  },
+  scales: {
+    x: {
+      barThickness: 15,  // Reduce bar thickness to make the chart more compact
+      maxBarThickness: 20,  // Set a maximum bar thickness
+    },
+    y: {
+      beginAtZero: true,
+      ticks: {
+        stepSize: 5,
+      },
+    },
+  },
+};
+
+
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState({
     gradeLevel: 'Overall',
     strand: 'Overall',
-    schoolYear: '2023-2024',
+    schoolYear: 'Overall',
   });
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -50,58 +99,90 @@ const Dashboard = () => {
 
   const navigate = useNavigate();
   const chartRef = useRef(null);
-
-  // Fetch data from backend API with token handling
   const fetchData = async () => {
     try {
       let accessToken = localStorage.getItem('token');
-      const response = await fetch('/api/dashboard/', {
+      
+      // Create query parameters including school_year, gradeLevel, and strand
+      const queryParams = new URLSearchParams({
+        gradeLevel: filters.gradeLevel !== 'Overall' ? filters.gradeLevel : '',
+        strand: filters.strand !== 'Overall' ? filters.strand : '',
+        school_year: filters.schoolYear !== 'Overall' ? filters.schoolYear : '',  // Ensure school_year is included
+      });
+  
+      // Initial request to fetch dashboard data
+      const response = await fetch(`/api/dashboard/?${queryParams.toString()}`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
       });
-
+  
+      // Handle token expiration (401 Unauthorized) and refresh if needed
       if (response.status === 401) {
         accessToken = await refreshAccessToken(navigate);
         if (accessToken) {
-          const retryResponse = await fetch('/api/dashboard/', {
+          const retryResponse = await fetch(`/api/dashboard/?${queryParams.toString()}`, {
             headers: {
               Authorization: `Bearer ${accessToken}`,
             },
           });
-          const retryData = await retryResponse.json();
-          setDashboardData(retryData);
+  
+          // Handle retry response
+          if (retryResponse.ok) {
+            const retryData = await retryResponse.json();
+            setDashboardData(retryData);  // Set the fetched dashboard data
+          } else {
+            throw new Error('Failed to refetch data after token refresh');
+          }
+        } else {
+          throw new Error('Token refresh failed');
         }
-      } else {
+      } else if (response.ok) {
         const data = await response.json();
-        setDashboardData(data);
-      }
+        setDashboardData(data);  // Set the fetched dashboard data
+        
+        // Now log the fetched data
+        console.log('Fetched data:', data);  // Log fetched data for debugging
+    } else {
+        console.error('Failed to fetch dashboard data:', response.status, response.statusText);
+        throw new Error('Failed to fetch dashboard data');
+    }
+    
+      // Set loading state to false after fetching
       setIsLoading(false);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       navigate('/admin/login');
     }
   };
-
+  
+  // Fetch data when filters change
   useEffect(() => {
     fetchData();
-  }, []);
-
+  }, [filters]);  // Ensure the effect runs every time filters are updated
+  
   if (isLoading) {
     return <div>Loading...</div>;
   }
 
   // Filter handling
   const handleFilterChange = (event) => {
+    const { name, value } = event.target;
     setFilters({
       ...filters,
-      [event.target.name]: event.target.value,
+      [name]: value,
     });
   };
+  
 
   const getFilteredData = () => {
     let filteredData = dashboardData;
 
+    // Ensure that filters are correctly initialized and data is available
+    console.log('Current Filters:', filters);
+    console.log('Dashboard Data:', dashboardData);
+
+    // Filtering logic
     if (filters.gradeLevel !== 'Overall') {
       filteredData = filteredData.filter((d) => d.grade_level === filters.gradeLevel);
     }
@@ -110,13 +191,15 @@ const Dashboard = () => {
       filteredData = filteredData.filter((d) => d.strand === filters.strand);
     }
 
+    console.log('Filtered Data:', filteredData);  // Check what data is returned
     return filteredData;
   };
 
-  // Prepare chart data
+
+
   const getRiasecChartData = () => {
     const filteredData = getFilteredData();
-  
+
     const totalScores = {
       realistic: 0,
       investigative: 0,
@@ -125,18 +208,18 @@ const Dashboard = () => {
       enterprising: 0,
       conventional: 0,
     };
-  
+
     const strandScores = {
       ABM: { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
       ARTSDESIGN: { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
       STEM: { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
-      HUMMS: { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
+      HUMSS: { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
       'TVL - Information and Communications Technology': { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
       'TVL - Home Economics': { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
       'TVL - Agri-Fishery Arts': { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
       'TVL - Industrial Arts': { realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 },
     };
-  
+
     filteredData.forEach((conversation) => {
       totalScores.realistic += conversation.realistic_score;
       totalScores.investigative += conversation.investigative_score;
@@ -144,9 +227,9 @@ const Dashboard = () => {
       totalScores.social += conversation.social_score;
       totalScores.enterprising += conversation.enterprising_score;
       totalScores.conventional += conversation.conventional_score;
-  
+
       // Update the respective strand scores
-      if (conversation.strand in strandScores) {
+      if (strandScores[conversation.strand]) {
         strandScores[conversation.strand].realistic += conversation.realistic_score;
         strandScores[conversation.strand].investigative += conversation.investigative_score;
         strandScores[conversation.strand].artistic += conversation.artistic_score;
@@ -155,7 +238,7 @@ const Dashboard = () => {
         strandScores[conversation.strand].conventional += conversation.conventional_score;
       }
     });
-  
+
     return {
       labels: ['Realistic', 'Investigative', 'Artistic', 'Social', 'Enterprising', 'Conventional'],
       datasets: [
@@ -170,6 +253,10 @@ const Dashboard = () => {
             totalScores.conventional,
           ],
           backgroundColor: '#28a745',
+          borderColor: '#333',
+          borderWidth: 2,
+          borderRadius: 5,
+          hoverBackgroundColor: '#555',
         },
         {
           label: 'ABM',
@@ -182,7 +269,7 @@ const Dashboard = () => {
             strandScores.ABM.conventional,
           ],
           backgroundColor: '#fd7e14',
-          hidden: true, // Initially hidden
+          hidden: true,
         },
         {
           label: 'ARTS & DESIGN',
@@ -211,14 +298,14 @@ const Dashboard = () => {
           hidden: true,
         },
         {
-          label: 'HUMMS',
+          label: 'HUMSS',
           data: [
-            strandScores.HUMMS.realistic,
-            strandScores.HUMMS.investigative,
-            strandScores.HUMMS.artistic,
-            strandScores.HUMMS.social,
-            strandScores.HUMMS.enterprising,
-            strandScores.HUMMS.conventional,
+            strandScores.HUMSS.realistic,
+            strandScores.HUMSS.investigative,
+            strandScores.HUMSS.artistic,
+            strandScores.HUMSS.social,
+            strandScores.HUMSS.enterprising,
+            strandScores.HUMSS.conventional,
           ],
           backgroundColor: '#dc3545',
           hidden: true,
@@ -278,43 +365,12 @@ const Dashboard = () => {
       ],
     };
   };
-  
-  // Chart options with legend interactivity
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false, // Disable default aspect ratio
-    plugins: {
-      legend: {
-        display: true,
-        onClick: (e, legendItem) => {
-          const index = legendItem.datasetIndex;
-          const ci = legendItem.chart;
-          const meta = ci.getDatasetMeta(index);
-  
-          // Toggle the visibility of the clicked dataset
-          meta.hidden = meta.hidden === null ? !ci.data.datasets[index].hidden : null;
-          ci.update();
-        },
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: {
-          stepSize: 1,
-        },
-      },
-    },
-  };
-  
-  // Use in the component
-  <Bar data={getRiasecChartData()} options={options} />;
-  
+
   const getSexChartData = () => {
     const filteredData = getFilteredData();
     let maleCount = 0;
     let femaleCount = 0;
-
+  
     filteredData.forEach((conversation) => {
       if (conversation.sex === 'Male') {
         maleCount += 1;
@@ -322,14 +378,20 @@ const Dashboard = () => {
         femaleCount += 1;
       }
     });
-
+  
+    const totalCount = maleCount + femaleCount;
+  
     return {
-      labels: ['Male', 'Female'],
+      labels: ['Male', 'Female', 'Total'],
       datasets: [
         {
           label: 'Gender Distribution',
-          data: [maleCount, femaleCount],
-          backgroundColor: ['#007bff', '#ff6ec7'],
+          data: [maleCount, femaleCount, totalCount],
+          backgroundColor: ['#007bff', '#ff6ec7', '#4caf50'],  // Add a color for Total
+          borderColor: '#333',
+          borderWidth: 2,
+          hoverBackgroundColor: ['#0056b3', '#ff3c7f', '#388e3c'],  // Hover colors including Total
+          borderRadius: 5,
         },
       ],
     };
@@ -348,37 +410,23 @@ const Dashboard = () => {
       }
     });
   
-    // Define chart data and options
+    const totalCount = grade11Count + grade12Count;
+  
     return {
-      labels: ['Gr:11', 'Gr:12'],
+      labels: ['Grade 11', 'Grade 12', 'Total'],
       datasets: [
         {
-          label: 'Students by Grade Level',
-          data: [grade11Count, grade12Count],
-          backgroundColor: ['#007bff', '#dc3545'],
+          label: 'Grade Level Distribution',
+          data: [grade11Count, grade12Count, totalCount],
+          backgroundColor: ['#ff6384', '#36a2eb', '#4caf50'],  // Add a color for Total
+          borderColor: '#333',
+          borderWidth: 2,
+          hoverBackgroundColor: ['#ff1c4b', '#1c83d1', '#388e3c'],  // Hover colors including Total
+          borderRadius: 5,
         },
       ],
-      options: {
-        responsive: true,
-        maintainAspectRatio: false, // Disable default aspect ratio
-        plugins: {
-          legend: {
-            display: true,
-            position: 'top',
-          },
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              stepSize: 1, // Ensure integer values only
-            },
-          },
-        },
-      },
     };
   };
-  
   
   // Function to download chart as PNG
   const downloadPNG = () => {
@@ -403,141 +451,49 @@ const Dashboard = () => {
   }));
   return (
     <Container fluid>
+      
     <Row>
-      {/* Sidebar */}
-      <Col
-        xs="auto"
-        className="bg-warning vh-100"
-        style={{
-          width: isSidebarCollapsed ? '80px' : '200px',
-          transition: 'width 0.3s ease',
-          overflow: 'hidden',
-        }}
-      >
-        <div style={{ marginTop: '20px' }}>
-          <Button
-            variant="link"
-            className="text-white"
-            onClick={toggleSidebar}
-            style={{ marginBottom: '20px' }}
-          >
-            {/* Hamburger Icon for toggling sidebar */}
-            <span className="navbar-toggler-icon"></span>
-          </Button>
-  
-          <Nav className="flex-column text-center">
-            <Nav.Item className="mb-2">
-              <Nav.Link
-                href="/admin/dashboard"
-                className="text-white fw-bold d-flex align-items-center justify-content-center"
-                style={{
-                  flexDirection: isSidebarCollapsed ? 'column' : 'row',
-                  transition: 'all 0.3s ease',
-                  fontSize: isSidebarCollapsed ? '0.8rem' : '1rem',
-                  color: 'white',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = 'white';
-                  e.currentTarget.querySelector('svg').style.fill = 'white';
-                  e.currentTarget.querySelector('span').style.color = 'white';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = '';
-                  e.currentTarget.querySelector('svg').style.fill = '';
-                  e.currentTarget.querySelector('span').style.color = '';
-                }}
-              >
-                <FaHome className="me-2" size={isSidebarCollapsed ? 25 : 20} />
-                {!isSidebarCollapsed && <span>Dashboard</span>}
-              </Nav.Link>
-            </Nav.Item>
-  
-            <Nav.Item className="mb-2">
-              <Nav.Link
-                href="conversation"
-                className="text-white fw-bold d-flex align-items-center justify-content-center"
-                style={{
-                  flexDirection: isSidebarCollapsed ? 'column' : 'row',
-                  transition: 'all 0.3s ease',
-                  fontSize: isSidebarCollapsed ? '0.8rem' : '1rem',
-                  color: 'white',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = 'white';
-                  e.currentTarget.querySelector('svg').style.fill = 'white';
-                  e.currentTarget.querySelector('span').style.color = 'white';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = '';
-                  e.currentTarget.querySelector('svg').style.fill = '';
-                  e.currentTarget.querySelector('span').style.color = '';
-                }}
-              >
-                <FaClipboardList className="me-2" size={isSidebarCollapsed ? 25 : 20} />
-                {!isSidebarCollapsed && <span>Conversations</span>}
-              </Nav.Link>
-            </Nav.Item>
-  
-            <Nav.Item className="mb-2">
-              <Nav.Link
-                href="/admin/feedback"
-                className="text-white fw-bold d-flex align-items-center justify-content-center"
-                style={{
-                  flexDirection: isSidebarCollapsed ? 'column' : 'row',
-                  transition: 'all 0.3s ease',
-                  fontSize: isSidebarCollapsed ? '0.8rem' : '1rem',
-                  color: 'white',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = 'white';
-                  e.currentTarget.querySelector('svg').style.fill = 'white';
-                  e.currentTarget.querySelector('span').style.color = 'white';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = '';
-                  e.currentTarget.querySelector('svg').style.fill = '';
-                  e.currentTarget.querySelector('span').style.color = '';
-                }}
-              >
-                <FaCommentDots className="me-2" size={isSidebarCollapsed ? 25 : 20} />
-                {!isSidebarCollapsed && <span>Feedback</span>}
-              </Nav.Link>
-            </Nav.Item>
-          </Nav>
-        </div>
-      </Col>
-  
-      {/* Main Content */}
-      <Col
-        xs={isSidebarCollapsed ? 11 : 10}
-        className="p-4"
-        style={{
-          transition: 'width 0.3s ease',
-        }}
-      >
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h3>Dashboard</h3>
-          <div>
-            <Button className="me-2" onClick={downloadPNG}>
-              Download PNG
-            </Button>
-            <CSVLink data={csvData} filename="dashboard_data.csv" className="btn btn-success">
-              Download CSV
-            </CSVLink>
-          </div>
-        </div>
-  
-        {/* Filters */}
-        <div className="d-flex justify-content-start mb-4">
+
+  {/* Main Content */}
+  <Col xs={10} className="p-4">
+  <div className="d-flex justify-content-between align-items-center mb-4">
+  <h3>Dashboard</h3>
+  <div className="d-flex justify-content-end" style={{ flex: 1 }}>
+    {/* Export Dropdown */}
+    <DropdownButton
+      id="dropdown-export-button"
+      title="Export"
+      variant="warning"
+      className="me-2"
+      drop="down-centered"  // Use 'down-centered' to ensure it drops directly under the button
+    >
+      <Dropdown.Item onClick={downloadPNG}>Download PNG</Dropdown.Item>
+      <Dropdown.Item as={CSVLink} data={csvData} filename="dashboard_data.csv">
+        Download CSV
+      </Dropdown.Item>
+    </DropdownButton>
+  </div>
+</div>
+
+
+
+    {/* Filters Section */}
+    <Row className="mb-4">
+      <Col md={12}>
+        <div className="d-flex justify-content-start">
           <Form.Group className="me-3">
             <Form.Label>Grade Level</Form.Label>
-            <Form.Select name="gradeLevel" value={filters.gradeLevel} onChange={handleFilterChange}>
+            <Form.Select
+              name="gradeLevel"
+              value={filters.gradeLevel}
+              onChange={handleFilterChange}
+            >
               <option value="Overall">Overall</option>
               <option value="11">Grade 11</option>
               <option value="12">Grade 12</option>
             </Form.Select>
           </Form.Group>
-  
+
           <Form.Group className="me-3">
             <Form.Label>Strand</Form.Label>
             <Form.Select name="strand" value={filters.strand} onChange={handleFilterChange}>
@@ -549,42 +505,50 @@ const Dashboard = () => {
               <option value="GAS">GAS</option>
             </Form.Select>
           </Form.Group>
-  
+
           <Form.Group className="me-3">
             <Form.Label>School Year</Form.Label>
             <Form.Select name="schoolYear" value={filters.schoolYear} onChange={handleFilterChange}>
-              <option value="2023-2024">2023-2024</option>
+              <option value="Overall">Overall</option>
               <option value="2022-2023">2022-2023</option>
+              <option value="2023-2024">2023-2024</option>
+              <option value="2024-2025">2024-2025</option>
             </Form.Select>
           </Form.Group>
-  
+
           <Button className="mt-auto">Filter</Button>
         </div>
-  
-        {/* Charts */}
-        <Row>
-          <Col md={6}>
-            <div ref={chartRef}>
-              <Bar data={getRiasecChartData()} />
-            </div>
-          </Col>
-          <Col md={6}>
-            <Bar data={getSexChartData()} />
-          </Col>
-        </Row>
-  
-        <Row className="mt-4">
-          <Col md={12} className="d-flex justify-content-center">
-            <div style={{ width: '80%', maxWidth: '800px', height: '300px' }}>
-              <Bar data={getGradeLevelChartData()} options={getGradeLevelChartData().options} />
-            </div>
-          </Col>
-        </Row>
       </Col>
     </Row>
+
+    {/* Charts Section */}
+    <Row>
+      <Col md={6}>
+        <div ref={chartRef} style={{ height: '400px' }}>
+          <Bar data={getRiasecChartData()} options={chartOptionsWithAdjustedPadding} />
+        </div>
+      </Col>
+
+      <Col md={6}>
+        <Bar data={getSexChartData()} options={chartOptionsWithAdjustedPadding} />
+      </Col>
+    </Row>
+
+    <Row className="mt-4">
+      <Col md={12} className="d-flex justify-content-center">
+        <div style={{ width: '80%', maxWidth: '800px', height: '250px' }}>
+          <Bar data={getGradeLevelChartData()} options={chartOptionsWithAdjustedPadding} />
+        </div>
+      </Col>
+    </Row>
+  </Col>
+</Row>
+
   </Container>
   
   
-);
+
+
+  );
 };
 export default Dashboard;

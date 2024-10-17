@@ -42,16 +42,44 @@ const Header = ({ navlinks, auth, handleLogout }) => {
               ))}
             {!auth ? (
               <>
-                <li className='nav-item'>
-                  <a className='nav-link' href='#modal-login' data-bs-toggle='modal' data-bs-target='#modal-login'>
-                    Login
-                  </a>
-                </li>
-                <li className='nav-item'>
-                  <a className='nav-link' href='#modal-register' data-bs-toggle='modal' data-bs-target='#modal-register'>
-                    Register
-                  </a>
-                </li>
+<li className="nav-item">
+  <a
+    className="btn btn-primary fw-bold"
+    href="#modal-login"
+    data-bs-toggle="modal"
+    data-bs-target="#modal-login"
+    style={{
+      padding: '0.5rem 1rem', // Adjusted padding to make it smaller
+      backgroundColor: '#007bff',
+      border: 'none',
+      color: '#fff',
+      borderRadius: '6px',
+      fontSize: '0.9rem', // Reduced the font size
+      textTransform: 'uppercase',
+      letterSpacing: '1px',
+      transition: 'background-color 0.3s ease, transform 0.3s ease',
+      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+      display: 'inline-block',
+      verticalAlign: 'middle',
+      marginLeft: '20px', // Adds space between the button and the last link
+      marginTop: '-8px', // Adjust this value to move the button upwards
+    }}
+    onMouseEnter={(e) => {
+      e.target.style.backgroundColor = '#0056b3';
+      e.target.style.transform = 'translateY(-2px)';
+    }}
+    onMouseLeave={(e) => {
+      e.target.style.backgroundColor = '#007bff';
+      e.target.style.transform = 'translateY(0)';
+    }}
+  >
+    Login
+  </a>
+</li>
+
+
+
+
               </>
             ) : (
               <li className='nav-item dropdown'>
