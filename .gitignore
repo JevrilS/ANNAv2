@@ -13,6 +13,7 @@ venv/
 
 # Environment variables and sensitive files
 *.env
+service_account.json
 
 # Node modules (in case you have them somewhere)
 node_modules/
@@ -21,3 +22,17 @@ node_modules/
 *.log
 .DS_Store
 *.swp
+
+# Allow specific folders to be tracked
+!utils/
+!models/
+!middleware/
+!controller/
+!config/
+
+# Allow all files inside those folders to be tracked
+!utils/**
+!models/**
+!middleware/**
+!controller/**
+!config/**
