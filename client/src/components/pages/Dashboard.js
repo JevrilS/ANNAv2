@@ -498,16 +498,19 @@ const getRiasecChartData = () => {
           </Form.Group>
 
           <Form.Group className="me-3">
-            <Form.Label>Strand</Form.Label>
-            <Form.Select name="strand" value={filters.strand} onChange={handleFilterChange}>
-              <option value="Overall">Overall</option>
-              <option value="STEM">STEM</option>
-              <option value="ABM">ABM</option>
-              <option value="ARTS & DESIGN">Arts & Design</option>
-              <option value="HUMSS">HUMSS</option>
-              <option value="GAS">GAS</option>
-            </Form.Select>
-          </Form.Group>
+          <Form.Label>Strand</Form.Label>
+          <Form.Select name="strand" value={filters.strand} onChange={handleFilterChange}>
+            <option value="Overall">Overall</option>
+            <option value="STEM">STEM</option>
+            <option value="ABM">ABM</option>
+            <option value="ARTSDESIGN">ARTS & DESIGN</option>
+            <option value="HUMSS">HUMSS</option>
+            <option value="TVL - Information and Communications Technology">TVL - Information and Communications Technology</option>
+            <option value="TVL - Home Economics">TVL - Home Economics</option>
+            <option value="TVL - Agri-Fishery Arts">TVL - Agri-Fishery Arts</option>
+            <option value="TVL - Industrial Arts">TVL - Industrial Arts</option>
+          </Form.Select>
+        </Form.Group>
 
           <Form.Group className="me-3">
             <Form.Label>School Year</Form.Label>

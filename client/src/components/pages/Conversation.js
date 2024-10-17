@@ -5,6 +5,7 @@ import { Tabs, Tab } from 'react-bootstrap';
 import { CSVLink } from 'react-csv';
 
 const Conversations = () => {
+  const normalizeStrand = (strand) => strand.toLowerCase().replace(/[^a-z0-9]/g, '').trim(); // Lowercase, remove non-alphanumeric characters
   const [conversations, setConversations] = useState([]); // Initialize as an empty array
   const [filters, setFilters] = useState({
     searchQuery: '',
@@ -44,49 +45,62 @@ const Conversations = () => {
     }
   };
   
-  useEffect(() => {
-    const fetchConversations = async () => {
-      try {
-        let accessToken = localStorage.getItem('token');
-        const queryParams = new URLSearchParams({
-          search: filters.searchQuery || '',
-          strand: filters.strand !== 'Overall' ? filters.strand : '',
-          school_year: filters.schoolYear !== 'Overall' ? filters.schoolYear : '',
+  const [courses, setCourses] = useState([]); // New state for courses
+
+useEffect(() => {
+  const fetchConversationsAndCourses = async () => {
+    try {
+      let accessToken = localStorage.getItem('token');
+      const queryParams = new URLSearchParams({
+        search: filters.searchQuery || '',
+        strand: filters.strand !== 'Overall' ? filters.strand : '',
+        school_year: filters.schoolYear !== 'Overall' ? filters.schoolYear : '',
+      });
+
+      // Fetch conversations
+      const response = await fetch(`http://localhost:8000/get-conversations/?${queryParams.toString()}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Fetched Data:', data.conversations);
+
+        // Normalize and filter conversations based on strands
+        const normalizedConversations = data.conversations.filter((conversation) => {
+          const normalizedStrand = normalizeStrand(conversation.strand);
+          const filterStrand = normalizeStrand(filters.strand);
+          console.log('Normalized Strand:', normalizedStrand);
+          console.log('Filter Strand:', filterStrand);
+
+          return normalizeStrand(filters.strand) === 'overall' || normalizedStrand === filterStrand;
         });
 
-        const response = await fetch(`http://localhost:8000/get-conversations/?${queryParams.toString()}`, {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.status === 401) {
-          accessToken = await refreshAccessToken();
-          if (accessToken) {
-            const retryResponse = await fetch(`http://localhost:8000/get-conversations/?${queryParams.toString()}`, {
-              method: 'GET',
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-              },
-            });
-            const retryData = await retryResponse.json();
-            setConversations(retryData.conversations);
-          }
-        } else {
-          const data = await response.json();
-          setConversations(data.conversations);
-        }
-      } catch (error) {
-        console.error('Failed to fetch conversations:', error);
-        setError(error.message);
+        setConversations(normalizedConversations);
+      } else {
+        console.error('Failed to fetch conversations:', response.status, response.statusText);
       }
-    };
 
-    fetchConversations();
-  }, [filters, currentPage, itemsPerPage]);
+      // Fetch courses with RIASEC areas
+      const courseResponse = await fetch('http://localhost:5000/api/courses');
+      const courseData = await courseResponse.json();
+      setCourses(courseData); // Save the fetched courses
+    } catch (error) {
+      console.error('Failed to fetch conversations or courses:', error);
+      setError(error.message);
+    }
+  };
+
+  fetchConversationsAndCourses();
+}, [filters, currentPage, itemsPerPage]);
+  
+  
+  
+  
 
   // Function to format date
   const formatDate = (dateString) => {
@@ -164,6 +178,22 @@ const fetchUserDetails = async (userId) => {
   const currentConversations = conversations; // Display all conversations
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+  const abbreviateStrand = (strand) => {
+    switch (strand.toUpperCase()) {
+      case 'TVL - INFORMATION AND COMMUNICATIONS TECHNOLOGY':
+        return 'TVL - ICT';
+      case 'TVL - HOME ECONOMICS':
+        return 'TVL - HE';
+      case 'TVL - AGRI-FISHERY ARTS':
+        return 'TVL - AFA';
+      case 'TVL - INDUSTRIAL ARTS':
+        return 'TVL - IA';
+      default:
+        return strand; // Return the original strand if no abbreviation is needed
+    }
+  };
+  
   const csvData = [
     {
       Name: userDetails?.full_name || 'N/A',
@@ -184,6 +214,20 @@ const fetchUserDetails = async (userId) => {
       "Strand Course Recommendations": selectedConversation?.strand_course_recommendation?.join(', ') || 'N/A',
     },
   ];
+  const csvAllData = conversations.map((conversation) => ({
+    Name: conversation.name || 'N/A',
+    Age: conversation.age || 'N/A',
+    Sex: conversation.sex || 'N/A',
+    Strand: conversation.strand || 'N/A',
+    "Realistic Score": conversation.realistic_score || 'N/A',
+    "Investigative Score": conversation.investigative_score || 'N/A',
+    "Artistic Score": conversation.artistic_score || 'N/A',
+    "Social Score": conversation.social_score || 'N/A',
+    "Enterprising Score": conversation.enterprising_score || 'N/A',
+    "Conventional Score": conversation.conventional_score || 'N/A',
+    "RIASEC Course Recommendations": conversation.riasec_course_recommendation?.join(', ') || 'N/A',
+    "Strand Course Recommendations": conversation.strand_course_recommendation?.join(', ') || 'N/A',
+  }));
   
   return (
     <Container fluid>
@@ -196,51 +240,58 @@ const fetchUserDetails = async (userId) => {
   
           {/* Search and Filters */}
           <Row className="mb-4">
-            <Col md={6}>
-              <InputGroup>
-                <Form.Control
-                  type="text"
-                  placeholder="Search by name (e.g. John Doe)"
-                  name="searchQuery"
-                  value={filters.searchQuery}
-                  onChange={handleFilterChange}
-                />
-                <Button variant="warning">
-                  <i className="fa fa-search"></i>
-                </Button>
-              </InputGroup>
-            </Col>
-            <Col md={2}>
-              <Form.Select name="strand" value={filters.strand} onChange={handleFilterChange}>
-                <option value="Overall">All</option>
+  <Col md={6}>
+    <InputGroup>
+      <Form.Control
+        type="text"
+        placeholder="Search by name (e.g. John Doe)"
+        name="searchQuery"
+        value={filters.searchQuery}
+        onChange={handleFilterChange}
+      />
+      <Button variant="warning">
+        <i className="fa fa-search"></i>
+      </Button>
+    </InputGroup>
+  </Col>
+  <Col md={2}>
+  <Form.Select name="strand" value={filters.strand} onChange={handleFilterChange}>
+                <option value="Overall">Overall</option>
                 <option value="STEM">STEM</option>
                 <option value="ABM">ABM</option>
+                <option value="ARTSDESIGN">ARTS & DESIGN</option>
                 <option value="HUMSS">HUMSS</option>
-                <option value="ARTS & DESIGN">ARTS & DESIGN</option>
-                <option value="TVL - Information and Communications Technology">
-                  TVL - Information and Communications Technology
-                </option>
+                <option value="TVL - Information and Communications Technology">TVL - Information and Communications Technology</option>
                 <option value="TVL - Home Economics">TVL - Home Economics</option>
                 <option value="TVL - Agri-Fishery Arts">TVL - Agri-Fishery Arts</option>
                 <option value="TVL - Industrial Arts">TVL - Industrial Arts</option>
               </Form.Select>
-            </Col>
-            <Col md={2}>
-              <Form.Select name="schoolYear" value={filters.schoolYear} onChange={handleFilterChange}>
-                <option value="Overall">Overall</option>
-                <option value="2022-2023">2022-2023</option>
-                <option value="2023-2024">2023-2024</option>
-                <option value="2024-2025">2024-2025</option>
-              </Form.Select>
-            </Col>
-  
-            <Col md={2}>
-              <Button variant="warning" className="w-100" onClick={() => setCurrentPage(1)}>
-                <i className="fa fa-filter"></i> Filter
-              </Button>
-            </Col>
-          </Row>
-  
+
+
+  </Col>
+  <Col md={2}>
+    <Form.Select name="schoolYear" value={filters.schoolYear} onChange={handleFilterChange}>
+      <option value="Overall">Overall</option>
+      <option value="2022-2023">2022-2023</option>
+      <option value="2023-2024">2023-2024</option>
+      <option value="2024-2025">2024-2025</option>
+    </Form.Select>
+  </Col>
+
+  <Col md={2}>
+    <Button variant="primary" className="w-100">
+      <CSVLink
+        data={csvAllData}
+        filename="conversations_data.csv"
+        className="text-white"
+        style={{ textDecoration: 'none' }}
+      >
+        <i className="fa fa-download"></i> Export All
+      </CSVLink>
+    </Button>
+  </Col>
+</Row>
+
           {/* Conversations Table */}
           <Table striped bordered hover responsive>
             <thead style={{ backgroundColor: 'var(--primary)', color: '#fff' }}>
@@ -262,7 +313,7 @@ const fetchUserDetails = async (userId) => {
                     <td className="text-center">{conversation.name || 'N/A'}</td>
                     <td className="text-center">{conversation.age || 'N/A'}</td>
                     <td className="text-center">{conversation.sex || 'N/A'}</td>
-                    <td className="text-center">{conversation.strand || 'N/A'}</td>
+                    <td className="text-center">{abbreviateStrand(conversation.strand) || 'N/A'}</td>
                     <td className="text-center">{formatRiasecCode(conversation.riasec_code)}</td>
                     <td className="text-center">
                       <Button variant="link" className="text-warning" onClick={() => handleShowDetails(conversation)}>
@@ -387,25 +438,39 @@ const fetchUserDetails = async (userId) => {
           </div>
         </Tab>
 
-        {/* RIASEC Course Recommendations Tab */}
-        <Tab eventKey="courseRecommendations" title="Course Recommendations">
-          <div className="p-3">
-            <p className="text-center">
-              <strong>RIASEC Course Recommendations:</strong>
-            </p>
-            <Row className="justify-content-center">
-              {selectedConversation.riasec_course_recommendation && selectedConversation.riasec_course_recommendation.length > 0 ? (
-                selectedConversation.riasec_course_recommendation.map((course, index) => (
-                  <Col md={6} key={index}>
-                    <li>{course}</li>
-                  </Col>
-                ))
-              ) : (
-                <p className="text-center">No recommendations available</p>
-              )}
-            </Row>
-          </div>
-        </Tab>
+{/* RIASEC Course Recommendations Tab */}
+<Tab eventKey="courseRecommendations" title="Course Recommendations">
+  <div className="p-3">
+    <p className="text-center mb-4">
+      <strong>RIASEC Course Recommendations:</strong>
+    </p>
+    <Row className="justify-content-center">
+      {selectedConversation.riasec_course_recommendation && selectedConversation.riasec_course_recommendation.length > 0 ? (
+        selectedConversation.riasec_course_recommendation.map((course, index) => {
+          const riasecMapping = courses.find(c => c.name === course)?.riasec_area || [];
+
+          // Abbreviate RIASEC areas (e.g., Realistic -> R, Investigative -> I, etc.)
+          const abbreviatedRIASEC = riasecMapping.map(area => area[0].toUpperCase()).join('');
+
+          return (
+            <Col xs={12} md={6} key={index} className="mb-3">
+              <li style={{ fontSize: '1.1rem', lineHeight: '1.5' }}>
+                <span>{course}</span>{' '}
+                {abbreviatedRIASEC && (
+                  <span style={{ fontWeight: 'bold', color: '#007bff' }}> - {abbreviatedRIASEC}</span>
+                )}
+              </li>
+            </Col>
+          );
+        })
+      ) : (
+        <p className="text-center">No recommendations available</p>
+      )}
+    </Row>
+  </div>
+</Tab>
+
+
 
         {/* Strand Recommendations Tab */}
         <Tab eventKey="strandRecommendations" title="Strand Recommendations">

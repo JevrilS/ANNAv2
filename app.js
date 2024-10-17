@@ -19,6 +19,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
+app.use('/api', require('./routes/courseRoutes')); // Routes are prefixed with '/api'
 app.use('/auth', require('./routes/authenticationRoutes'));
 app.use('/admin', require('./routes/adminRoutes'));
 app.use('/user', require('./routes/UserRoutes'));

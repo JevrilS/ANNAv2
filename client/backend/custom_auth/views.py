@@ -129,36 +129,6 @@ def check_login_status(request):
             }
         }, status=status.HTTP_200_OK)
     return JsonResponse({'is_logged_in': False}, status=status.HTTP_200_OK)
-def recommend_courses(user_profile):
-    """Generate course recommendations based on RIASEC scores."""
-    riasec_scores = {
-        'realistic': user_profile.realistic_score,
-        'investigative': user_profile.investigative_score,
-        'artistic': user_profile.artistic_score,
-        'social': user_profile.social_score,
-        'enterprising': user_profile.enterprising_score,
-        'conventional': user_profile.conventional_score,
-    }
-
-    # Sort RIASEC types based on score
-    sorted_riasec = sorted(riasec_scores.items(), key=lambda x: x[1], reverse=True)
-
-    # Recommend courses based on top RIASEC types
-    top_riasec = sorted_riasec[:3]  # Take top 3 RIASEC types
-    recommendations = {
-        'realistic': ['Engineering', 'Architecture'],
-        'investigative': ['Biology', 'Research'],
-        'artistic': ['Fine Arts', 'Graphic Design'],
-        'social': ['Psychology', 'Teaching'],
-        'enterprising': ['Business Administration', 'Entrepreneurship'],
-        'conventional': ['Accounting', 'Finance'],
-    }
-
-    recommended_courses = []
-    for riasec_type, _ in top_riasec:
-        recommended_courses.extend(recommendations.get(riasec_type, []))
-
-    return recommended_courses
 
 class UserDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -296,7 +266,7 @@ def get_conversations(request):
 
         # Apply strand filter
         if strand and strand != 'Overall':
-            conversations = conversations.filter(strand=strand)  # Filter by uppercased strand
+            conversations = conversations.filter(strand__iexact=strand)  # Case-insensitive exact match
 
         # Apply school year filter (filter by the year of the created_at field)
         if school_year and school_year != 'Overall':
@@ -344,28 +314,6 @@ def get_conversations(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_user_conversations(request, user_id):
-    try:
-        # Fetch the user by ID
-        user = User.objects.get(id=user_id)
-        user_serializer = UserSerializer(user)
-        
-        # Fetch all conversations for this user
-        conversations = Conversation.objects.filter(user=user)
-        conversation_serializer = ConversationSerializer(conversations, many=True)
-        
-        # Return both user and conversation data in one response
-        return Response({
-            'user': user_serializer.data,
-            'conversations': conversation_serializer.data
-        }, status=status.HTTP_200_OK)
-    
-    except User.DoesNotExist:
-        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
@@ -488,17 +436,13 @@ def guidance_login_view(request):
         }, status=200)
     else:
         return Response({'error': 'Invalid credentials'}, status=400)
-
-from django.db.models import Q
-from django.db.models.functions import ExtractYear
-from django.core.exceptions import ValidationError
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_dashboard_data(request):
     try:
         # Get filters from the request
         search_query = request.GET.get('search', '')
-        strand = request.GET.get('strand', '').upper()  # Convert the strand to uppercase
+        strand = request.GET.get('strand', '').upper()  # Convert to uppercase for case-insensitive comparison
         school_year = request.GET.get('school_year', '')
 
         # Fetch all conversations data
@@ -543,6 +487,29 @@ def get_dashboard_data(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_conversations(request, user_id):
+    try:
+        # Fetch the user by ID
+        user = User.objects.get(id=user_id)
+        user_serializer = UserSerializer(user)
+        
+        # Fetch all conversations for this user
+        conversations = Conversation.objects.filter(user=user)
+        conversation_serializer = ConversationSerializer(conversations, many=True)
+        
+        # Return both user and conversation data in one response
+        return Response({
+            'user': user_serializer.data,
+            'conversations': conversation_serializer.data
+        }, status=status.HTTP_200_OK)
+    
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_user_by_id(request, user_id):
