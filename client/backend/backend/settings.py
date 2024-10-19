@@ -1,68 +1,58 @@
 import os
-import json
 from pathlib import Path
 from datetime import timedelta
-from dotenv import load_dotenv
+from google.cloud import secretmanager
 from google.oauth2 import service_account
-# Function to get allowed origins
-def get_cors_allowed_origins():
-    try:
-        try:
-            from custom_auth.models import AllowedOrigin  # Import models here to avoid AppRegistryNotReady error
-        except ImportError:
-            print("Error: custom_auth.models.AllowedOrigin could not be imported.")
-            return []
-        return [origin.origin for origin in AllowedOrigin.objects.all()]  # Return a list of allowed origins
-    except Exception as e:
-        print(f"Error fetching allowed origins: {e}")
-        return []  # Fallback in case of error
-
-# CORS settings
-CORS_ALLOWED_ORIGINS = get_cors_allowed_origins()
-# Load environment variables from .env file
-load_dotenv()
+import json
 
 # Set base directory
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Google service account credentials
-GOOGLE_PROJECT_ID = os.getenv('GOOGLE_PROJECT_ID')
-GOOGLE_PRIVATE_KEY_ID = os.getenv('GOOGLE_PRIVATE_KEY_ID')
-GOOGLE_PRIVATE_KEY = os.getenv('GOOGLE_PRIVATE_KEY')
-if GOOGLE_PRIVATE_KEY is None:
-    raise ValueError("GOOGLE_PRIVATE_KEY is not set!")
-GOOGLE_PRIVATE_KEY = GOOGLE_PRIVATE_KEY.replace("\\n", "\n")
-GOOGLE_CLIENT_EMAIL = os.getenv('GOOGLE_CLIENT_EMAIL')
-GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
-GOOGLE_AUTH_URI = os.getenv('GOOGLE_AUTH_URI')
-GOOGLE_TOKEN_URI = os.getenv('GOOGLE_TOKEN_URI')
-GOOGLE_AUTH_PROVIDER_X509_CERT_URL = os.getenv('GOOGLE_AUTH_PROVIDER_X509_CERT_URL')
-GOOGLE_CLIENT_X509_CERT_URL = os.getenv('GOOGLE_CLIENT_X509_CERT_URL')
-GOOGLE_APPLICATION_CREDENTIALS = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-if GOOGLE_APPLICATION_CREDENTIALS:
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_APPLICATION_CREDENTIALS
-    credentials = service_account.Credentials.from_service_account_file(GOOGLE_APPLICATION_CREDENTIALS)
-else:
-    raise ValueError("Google application credentials not found in environment variables.")
-# Construct the credentials JSON
-credentials_dict = {
-    "type": "service_account",
-    "project_id": GOOGLE_PROJECT_ID,
-    "private_key_id": GOOGLE_PRIVATE_KEY_ID,
-    "private_key": GOOGLE_PRIVATE_KEY,
-    "client_email": GOOGLE_CLIENT_EMAIL,
-    "client_id": GOOGLE_CLIENT_ID,
-    "auth_uri": GOOGLE_AUTH_URI,
-    "token_uri": GOOGLE_TOKEN_URI,
-    "auth_provider_x509_cert_url": GOOGLE_AUTH_PROVIDER_X509_CERT_URL,
-    "client_x509_cert_url": GOOGLE_CLIENT_X509_CERT_URL,
-}
+# Function to get allowed origins
+def access_secret_version(project_id, secret_id):
+    try:
+        client = secretmanager.SecretManagerServiceClient()
+        name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+        response = client.access_secret_version(name=name)
+        return response.payload.data.decode('UTF-8')
+    except Exception as e:
+        print(f"Error accessing secret '{secret_id}': {e}")
+        return None  # Return None if there's an error
 
-# Create the credentials object
-try:
-    credentials = service_account.Credentials.from_service_account_info(credentials_dict)
-except ValueError:
-    raise ValueError("Google application credentials not found in environment variables.")
+# Google Cloud project and secret details
+GOOGLE_PROJECT_ID = 'annadialogflow'  # Your Google Cloud project ID
+SERVICE_ACCOUNT_SECRET_ID = 'service_account_info'  # Secret ID for service account
+EMAIL_HOST_USER_SECRET_ID = 'EMAIL_HOST_USER'  # Secret ID for email user
+EMAIL_HOST_PASSWORD_SECRET_ID = 'EMAIL_HOST_PASSWORD'  # Secret ID for email password
+SECRET_KEY_SECRET_ID = 'SECRET_KEY'  # Secret ID for the Django secret key
+JWT_SECRET_ID = 'JWT_SECRET'  # Secret ID for JWT secret
+
+# Fetch secrets from Google Cloud Secret Manager
+service_account_info = access_secret_version(GOOGLE_PROJECT_ID, SERVICE_ACCOUNT_SECRET_ID)
+EMAIL_HOST_USER = access_secret_version(GOOGLE_PROJECT_ID, EMAIL_HOST_USER_SECRET_ID).strip()
+EMAIL_HOST_PASSWORD = access_secret_version(GOOGLE_PROJECT_ID, EMAIL_HOST_PASSWORD_SECRET_ID).strip()
+SECRET_KEY = access_secret_version(GOOGLE_PROJECT_ID, SECRET_KEY_SECRET_ID)
+JWT_SECRET = access_secret_version(GOOGLE_PROJECT_ID, JWT_SECRET_ID)
+
+# Load the service account key as a dictionary if it was fetched successfully
+if service_account_info:
+    try:
+        credentials_dict = json.loads(service_account_info)
+        credentials = service_account.Credentials.from_service_account_info(credentials_dict)
+    except ValueError as e:
+        print(f"Error creating Google credentials: {e}")
+else:
+    print("Service account information not fetched.")
+
+# Check if the essential secrets are fetched successfully before using them
+if EMAIL_HOST_USER is None:
+    raise ValueError("EMAIL_HOST_USER not fetched from Secret Manager.")
+if EMAIL_HOST_PASSWORD is None:
+    raise ValueError("EMAIL_HOST_PASSWORD not fetched from Secret Manager.")
+if SECRET_KEY is None:
+    raise ValueError("SECRET_KEY not fetched from Secret Manager.")
+if JWT_SECRET is None:
+    raise ValueError("JWT_SECRET not fetched from Secret Manager.")
 
 # Other environment variables
 DIALOGFLOW_SESSION_ID = os.getenv('DIALOGFLOW_SESSION_ID')
@@ -74,7 +64,11 @@ ADMIN_GOOGLE_CLIENT_EMAIL = os.getenv('ADMIN_GOOGLE_CLIENT_EMAIL')
 # Security settings
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-0(lkz%-&m^)ow+n&vk=se9!@rg@2#&gu3pe6&40_q-j)wvbltj')
 DEBUG = True
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'UIC.localhost', 'school1.localhost', 'uic.localhost', 'school1.localhost:3000', ]
+ALLOWED_HOSTS = [
+    'localhost', '127.0.0.1', 
+    'UIC.localhost', 'school1.localhost', 
+    'uic.localhost', 'school1.localhost:3000'
+]
 
 # Django REST framework settings
 REST_FRAMEWORK = {
@@ -95,34 +89,23 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
 }
-
-# CORS settings
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "http://localhost:8000",
-    "http://127.0.0.1:3000",
-    "http://school1.localhost:3000",
-    "http://school1.localhost:8000",
-    "http://uic.localhost:8000",
-    "http://uic.localhost:3000",
-    
-    
-
-    
 ]
-
-CORS_ALLOW_HEADERS = ["accept", "accept-encoding", "authorization", "content-type", "dnt", "origin", "user-agent", "x-csrftoken", "x-requested-with"]
+# CORS settings
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    "accept", "accept-encoding", "authorization", 
+    "content-type", "dnt", "origin", "user-agent", 
+    "x-csrftoken", "x-requested-with"
+]
 CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
-CORS_ALLOW_CREDENTIALS = True 
 
 # CSRF settings
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:8000",
-    "http://uic.localhost:8000",
-    "http://127.0.0.1:3000",
-    "http://school1.localhost:3000",
-    "http://uic.localhost:3000",
+    "http://localhost:3000", "http://localhost:8000", 
+    "http://uic.localhost:8000", "http://127.0.0.1:3000", 
+    "http://school1.localhost:3000", "http://uic.localhost:3000",
 ]
 
 # Applications listed in SHARED_APPS will be synced to the public schema
@@ -136,7 +119,10 @@ SHARED_APPS = (
     'django.contrib.staticfiles',
     'custom_auth',
     'corsheaders',
+    'django_email_verification', 
+    'django.contrib.sites',  # Add the email verification app
 )
+
 # TENANT_APPS
 TENANT_APPS = (
     'django.contrib.auth',
@@ -168,9 +154,8 @@ LOGGING = {
 
 # Middleware configuration
 MIDDLEWARE = [
-    'django_tenants.middleware.main.TenantMainMiddleware', 
-    'corsheaders.middleware.CorsMiddleware', 
-    'custom_auth.middleware.DynamicCorsMiddleware',  # Add this after the default CORS middleware
+    'django_tenants.middleware.main.TenantMainMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -242,7 +227,7 @@ USE_TZ = True
 # Static files
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Add this line
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -251,3 +236,20 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 PUBLIC_DOMAIN = 'localhost'
 ADMIN_URL = 'admin/'
+
+# Email configuration for Django Email Verification
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'  # Gmail SMTP server
+EMAIL_PORT = 587  # Use TLS
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER  # Set the default from email to the user email fetched from Secret Manager
+
+# Password reset timeout
+PASSWORD_RESET_TIMEOUT = 60 * 60 * 24  # Token expires in 24 hours
+
+# Email Verification Settings
+EMAIL_MAIL_SUBJECT = 'Confirm your email {{ user.full_name }}'
+EMAIL_MAIL_HTML = 'activation_email.html'
+EMAIL_MAIL_PLAIN = 'activation_email.txt'  # Optionally create a plain text version
+EMAIL_MAIL_TOKEN_LIFE = 60 * 60  # Token life in seconds (1 hour)
+EMAIL_MAIL_PAGE_TEMPLATE = 'email_success_template.html'

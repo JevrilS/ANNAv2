@@ -1,11 +1,13 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import '../styles/style.css';
-import anna from '../assets/Anna_1.svg';
+import { useModal } from 'react-modal-state';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+import anna from '../assets/Anna_1.svg';
 
 const Header = ({ navlinks, auth, handleLogout }) => {
+  const { open: openLoginModal } = useModal('login'); // Use the modal hook for login
+
   useEffect(() => {
     const bootstrap = require('bootstrap');
     const dropdownElements = document.querySelectorAll('.dropdown-toggle');
@@ -35,51 +37,45 @@ const Header = ({ navlinks, auth, handleLogout }) => {
             {navlinks.length > 0 &&
               navlinks.map((link, i) => (
                 <li key={i} className='nav-item'>
-                  <a className='nav-link' href={link.link} data-bs-toggle={link.isModal ? 'modal' : ''} data-bs-target={link.isModal ? link.link : ''}>
+                  <a className='nav-link' href={link.link}>
                     {link.text}
                   </a>
                 </li>
               ))}
             {!auth ? (
               <>
-<li className="nav-item">
-  <a
-    className="btn btn-primary fw-bold"
-    href="#modal-login"
-    data-bs-toggle="modal"
-    data-bs-target="#modal-login"
-    style={{
-      padding: '0.5rem 1rem', // Adjusted padding to make it smaller
-      backgroundColor: '#007bff',
-      border: 'none',
-      color: '#fff',
-      borderRadius: '6px',
-      fontSize: '0.9rem', // Reduced the font size
-      textTransform: 'uppercase',
-      letterSpacing: '1px',
-      transition: 'background-color 0.3s ease, transform 0.3s ease',
-      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-      display: 'inline-block',
-      verticalAlign: 'middle',
-      marginLeft: '20px', // Adds space between the button and the last link
-      marginTop: '-8px', // Adjust this value to move the button upwards
-    }}
-    onMouseEnter={(e) => {
-      e.target.style.backgroundColor = '#0056b3';
-      e.target.style.transform = 'translateY(-2px)';
-    }}
-    onMouseLeave={(e) => {
-      e.target.style.backgroundColor = '#007bff';
-      e.target.style.transform = 'translateY(0)';
-    }}
-  >
-    Login
-  </a>
-</li>
-
-
-
-
+                <li className="nav-item">
+                  <button
+                    className="btn btn-primary fw-bold"
+                    onClick={openLoginModal} // Open the login modal using the hook
+                    style={{
+                      padding: '0.5rem 1rem',
+                      backgroundColor: '#007bff',
+                      border: 'none',
+                      color: '#fff',
+                      borderRadius: '6px',
+                      fontSize: '0.9rem',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      transition: 'background-color 0.3s ease, transform 0.3s ease',
+                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                      display: 'inline-block',
+                      verticalAlign: 'middle',
+                      marginLeft: '20px',
+                      marginTop: '-8px',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = '#0056b3';
+                      e.target.style.transform = 'translateY(-2px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = '#007bff';
+                      e.target.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    Login
+                  </button>
+                </li>
               </>
             ) : (
               <li className='nav-item dropdown'>

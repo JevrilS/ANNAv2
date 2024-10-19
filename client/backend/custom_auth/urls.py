@@ -4,7 +4,7 @@ from .views import (
     register,
     FeedbackView,
     home_view,
-    is_varify,
+    is_verify,
     login_view,
     UserDetailView,
     ChangePasswordView,
@@ -16,7 +16,8 @@ from .views import (
     check_login_status,
     check_terms_agreement,
     agree_to_terms,
-    get_dashboard_data, # Import the get_distinct_strands view
+    get_dashboard_data, 
+    verify_email,# Import the get_distinct_strands view
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from custom_auth import views
@@ -25,7 +26,7 @@ urlpatterns = [
     path('', TemplateView.as_view(template_name='custom_auth/index.html'), name='home'),
     path('register/', register, name='register'),
     path('feedback/', FeedbackView.as_view(), name='feedback'),
-    path('is-verify/', is_varify, name='is_verify'),
+    path('is-verify/', is_verify, name='is_verify'),
     path('login/', login_view, name='login'),
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
@@ -42,5 +43,7 @@ urlpatterns = [
     path('api/agree_to_terms/', agree_to_terms, name='agree_to_terms'),
     path('api/dashboard/', get_dashboard_data, name='get_dashboard_data'),
     path('get-user/<int:user_id>/', views.get_user_by_id, name='get-user-by-id'),
+    path('verify-email/<uidb64>/<token>/', verify_email, name='verify_email'),
+
 
 ]

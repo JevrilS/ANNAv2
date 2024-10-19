@@ -16,7 +16,7 @@ ChartJS.register(...registerables, ChartDataLabels);
 // Token refresh function
 const refreshAccessToken = async (navigate) => {
   try {
-    const response = await fetch('/token/refresh/', {
+    const response = await fetch('http://localhost:8000/token/refresh/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -111,7 +111,7 @@ const Dashboard = () => {
       });
   
       // Initial request to fetch dashboard data
-      const response = await fetch(`/api/dashboard/?${queryParams.toString()}`, {
+      const response = await fetch(`http://localhost:8000/api/dashboard/?${queryParams.toString()}`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -121,7 +121,7 @@ const Dashboard = () => {
       if (response.status === 401) {
         accessToken = await refreshAccessToken(navigate);
         if (accessToken) {
-          const retryResponse = await fetch(`/api/dashboard/?${queryParams.toString()}`, {
+          const retryResponse = await fetch(`http://localhost:8000/api/dashboard/?${queryParams.toString()}`, {
             headers: {
               Authorization: `Bearer ${accessToken}`,
             },

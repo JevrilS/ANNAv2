@@ -1,12 +1,14 @@
 import './App.css';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer, Flip } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import { useEffect, useState, useRef } from 'react';
+import { ModalProvider, ModalRenderer } from 'react-modal-state';
+
+// Pages and Components
 import AccountDetails from './components/pages/AccountDetails';
 import Results from './components/pages/Results';
-import { useEffect, useState, useRef } from 'react';
-import { ChatbotContext } from './context/ChatbotContext';
-import { UserContext } from './context/UserContext';
 import AdminLogin from './components/pages/GuidanceLogin';
 import Admin from './components/pages/Admin';
 import Dashboard from './components/pages/Dashboard';
@@ -14,8 +16,11 @@ import Feedback from './components/pages/Feedback';
 import Conversation from './components/pages/Conversation';
 import ConversationDetails from './components/pages/ConversationDetails';
 import PageNotFound from './components/pages/PageNotFound';
-import 'bootstrap/dist/css/bootstrap.min.css';
 import LandingPage from './components/pages/LandingPage';
+import { ChatbotContext } from './context/ChatbotContext';
+import { UserContext } from './context/UserContext';
+import LoginModal from './components/pages/LoginModal';
+import RegisterModal from './components/pages/RegisterModal';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -30,96 +35,77 @@ function App() {
   const [isRecommendationProvided, setIsRecommendationProvided] = useState({ riasec: '', strand: '' });
   const [basis, setBasis] = useState('');
 
-  // Function to refresh the access token using the refresh token
-const refreshAccessToken = async () => {
-  try {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) throw new Error('No refresh token found');
+  const refreshAccessToken = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/token/refresh/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh: localStorage.getItem('refreshToken') }),
+      });
 
-    const response = await fetch('http://localhost:8000/token/refresh/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh: refreshToken }),
-    });
-
-    if (response.ok) {
       const data = await response.json();
-      localStorage.setItem('token', data.access); // Save the new access token
-      console.log('Token refreshed successfully:', data.access);
-      return data.access;
-    } else {
-      const errorData = await response.json();
-      console.error('Failed to refresh token:', errorData);
+      if (response.ok) {
+        localStorage.setItem('token', data.access);
+        return data.access;
+      } else {
+        console.error('Refresh token invalid or expired:', data);
+        return null;
+      }
+    } catch (err) {
+      console.error('Error refreshing access token:', err);
       return null;
     }
-  } catch (err) {
-    console.error('Error refreshing access token:', err);
-    return null;
-  }
-};
+  };
 
-// Function to verify the current access token and refresh if necessary
-const verify = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    const refreshToken = localStorage.getItem('refreshToken');
+  const verify = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const refreshToken = localStorage.getItem('refreshToken');
 
-    if (!token) {
-      console.log('No token found, setting isAuthenticated to false');
-      setIsAuthenticated(false);
-      setLoading(false);
-      return;
-    }
-
-    console.log('Token found, verifying token');
-    const response = await fetch('/auth/is-verify', {
-      method: 'GET',
-      headers: { 'Authorization': `Bearer ${token}` }, // Use Authorization header to send token
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data === true) {
-        console.log('Token is valid, setting isAuthenticated to true');
-        setIsAuthenticated(true);
+      if (!token) {
+        setIsAuthenticated(false);
         setLoading(false);
-      } else {
-        console.log('Token invalid, trying to refresh token');
-        const refreshedToken = await refreshAccessToken();
-        if (refreshedToken) {
-          setIsAuthenticated(true);
-          console.log('Token refreshed and verified successfully');
-        } else {
-          console.log('Refresh token invalid, logging out');
-          setIsAuthenticated(false);
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-        }
-        setLoading(false);
+        return;
       }
-    } else {
-      console.log('Token invalid, no refresh token available, logging out');
+
+      const response = await fetch('http://localhost:8000/auth/is-verify/', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data === true) {
+          setIsAuthenticated(true);
+        } else if (refreshToken) {
+          const refreshedToken = await refreshAccessToken();
+          if (refreshedToken) {
+            setIsAuthenticated(true);
+          } else {
+            setIsAuthenticated(false);
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+          }
+        } else {
+          setIsAuthenticated(false);
+        }
+      } else {
+        setIsAuthenticated(false);
+      }
+    } catch (err) {
       setIsAuthenticated(false);
+    } finally {
       setLoading(false);
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
     }
-  } catch (err) {
-    console.error('Token verification failed:', err);
-    setIsAuthenticated(false);
-    setLoading(false);
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-  }
-};
+  };
 
-// Verify token when the component mounts
-useEffect(() => {
-  verify();
-}, []);
+  useEffect(() => {
+    verify(); // Check authentication status on mount
+  }, []);
 
-
-  // This value is provided to all components using ChatbotContext
   const ChatbotContextValue = {
     isAgreeTermsConditions,
     setIsAgreeTermsConditions,
@@ -138,7 +124,6 @@ useEffect(() => {
     setBasis,
   };
 
-  // This value is provided to all components using UserContext
   const UserContextValue = {
     isAuthenticated,
     setIsAuthenticated,
@@ -153,10 +138,19 @@ useEffect(() => {
   return (
     <ChatbotContext.Provider value={ChatbotContextValue}>
       <UserContext.Provider value={UserContextValue}>
-        <Router>
-          <AppRoutes isAuthenticated={isAuthenticated} />
-        </Router>
-        <ToastContainer theme="light" transition={Flip} autoClose={2000} />
+        <ModalProvider
+          modals={[
+            ['login', LoginModal],
+            ['register', RegisterModal],
+          ]}
+        >
+          <Router>
+            <AppRoutes isAuthenticated={isAuthenticated} />
+          </Router>
+          <ToastContainer theme="light" transition={Flip} autoClose={2000} />
+          <ModalRenderer Component={LoginModal} />
+          <ModalRenderer Component={RegisterModal} />
+        </ModalProvider>
       </UserContext.Provider>
     </ChatbotContext.Provider>
   );

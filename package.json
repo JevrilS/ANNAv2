@@ -18,9 +18,10 @@
       "@emotion/react": "^11.13.3",
       "@emotion/styled": "^11.13.0",
       "@google-cloud/dialogflow": "^6.8.0",
+      "@grpc/grpc-js": "^1.12.2",
       "@mui/icons-material": "^6.1.4",
-      "@mui/material": "^5.16.7",
-      "@mui/x-data-grid": "^5.0.0",
+      "@mui/material": "^6.1.4",
+      "@mui/x-data-grid": "^7.21.0",
       "actions-on-google": "^2.14.0",
       "bcrypt": "^5.1.1",
       "bootstrap": "^5.3.3",
@@ -44,6 +45,8 @@
       "react-csv": "^2.2.2",
       "react-dom": "^18.3.1",
       "react-pro-sidebar": "^1.1.0",
+      "react-transition-group": "^4.4.5",
+      "saslprep": "^1.0.3",
       "structjson": "^1.0.1"
    },
    "devDependencies": {

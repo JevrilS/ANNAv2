@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django_tenants.admin import TenantAdminMixin
-from .models import User, UserProfile, Client, Domain, School
+from .models import  User, UserProfile, Client, Domain, School
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django_tenants.utils import get_tenant_model
 
@@ -91,10 +91,3 @@ class DomainAdmin(admin.ModelAdmin):
 
 # Register the Domain model with the admin site
 admin.site.register(Domain, DomainAdmin)
-from .models import AllowedOrigin
-
-class AllowedOriginAdmin(admin.ModelAdmin):
-    list_display = ['origin']
-    search_fields = ['origin']
-
-admin.site.register(AllowedOrigin, AllowedOriginAdmin)

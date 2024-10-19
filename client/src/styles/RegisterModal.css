@@ -1,0 +1,23 @@
+/* In RegisterModal.css */
+@keyframes check-animation {
+    0% {
+      transform: scale(0);
+    }
+    50% {
+      transform: scale(1);
+    }
+    100% {
+      transform: scale(0);
+    }
+  }
+  
+  /* Other styles specific to RegisterModal */
+  .check-animation {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 15px;
+    color: green; /* Change to your preferred color */
+    font-size: 1.2rem;
+  }
+  
