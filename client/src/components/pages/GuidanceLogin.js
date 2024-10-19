@@ -10,13 +10,13 @@ const GuidanceLogin = () => {
   const [loading, setLoading] = useState(false);  // New state for loading
   const navigate = useNavigate();
   const isMounted = useRef(true);  // Use ref to track mounted status
-  
+
   // Function to handle login
   const handleLogin = async (e) => {
     e.preventDefault();
-    
+
     setLoading(true);  // Start loading
-    
+
     try {
       const response = await fetch('/auth/guidance-login/', {
         method: 'POST',
@@ -28,15 +28,14 @@ const GuidanceLogin = () => {
 
       if (isMounted.current && response.ok && data.access && data.refresh) {
         // Store tokens only if they exist
-        localStorage.setItem('token', data.access);  
-        localStorage.setItem('refreshToken', data.refresh);  
-        console.log('Access Token:', data.access); 
+        localStorage.setItem('token', data.access);
+        localStorage.setItem('refreshToken', data.refresh);
+        console.log('Access Token:', data.access);
         console.log('Refresh Token:', data.refresh);
         toast.success('Login successful!');
-        
+
         // Force a redirect to dashboard after successful login
         window.location.replace('/admin/dashboard');
-        
       } else if (isMounted.current) {
         // If response isn't ok or tokens don't exist, show error
         console.error('Login error: ', data);
@@ -58,7 +57,7 @@ const GuidanceLogin = () => {
   useEffect(() => {
     // When the component is mounted, set isMounted to true
     isMounted.current = true;
-    
+
     // Cleanup function: when the component unmounts, set isMounted to false
     return () => {
       isMounted.current = false;
