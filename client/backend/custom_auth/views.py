@@ -596,8 +596,9 @@ def tenant_users(request):
 @permission_classes([AllowAny])
 def verify_email(request, uidb64, token):
     try:
+        # Decode the user ID from the base64 encoded string
         uid = force_str(urlsafe_base64_decode(uidb64))
-        user = User.objects.get(pk=uid)  # Get the user by ID
+        user = User.objects.get(pk=uid)  # Get the user by primary key (ID)
     except (TypeError, ValueError, OverflowError, User.DoesNotExist):
         user = None
 
@@ -606,8 +607,16 @@ def verify_email(request, uidb64, token):
     if user is not None and default_token_generator.check_token(user, token):
         user.is_active = True  # Activate the user
         user.save()
-        # Render the success template
-        return render(request, 'registration/email_success_template.html')  # Render your HTML template for successful verification
+
+        # Success - Render the success template
+        return render(request, 'registration/email_success_template.html', {'message': 'Your account has been activated successfully!'})
     else:
         logger.warning("Activation link is invalid!")
+        # Failure - Render the same template with an error message
         return render(request, 'registration/email_success_template.html', {'error': 'Activation link is invalid!'})
+    
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializers import CustomTokenObtainPairSerializer
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer

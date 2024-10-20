@@ -11,13 +11,14 @@ from .views import (
     SchoolListView,
     check_schema_view,
     guidance_login_view,
-    get_conversations,        # Import the get_conversations view
-    get_distinct_strands, 
+    get_conversations,
+    get_distinct_strands,
     check_login_status,
     check_terms_agreement,
     agree_to_terms,
-    get_dashboard_data, 
-    verify_email,# Import the get_distinct_strands view
+    get_dashboard_data,
+    verify_email,
+    CustomTokenObtainPairView  # Import the custom token view
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from custom_auth import views
@@ -28,7 +29,7 @@ urlpatterns = [
     path('feedback/', FeedbackView.as_view(), name='feedback'),
     path('is-verify/', is_verify, name='is_verify'),
     path('login/', login_view, name='login'),
-    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('user/', UserDetailView.as_view(), name='user-detail'),
     path('change-password/', ChangePasswordView.as_view(), name='change-password'),

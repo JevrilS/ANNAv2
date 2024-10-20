@@ -9,32 +9,31 @@ import { useNavigate } from 'react-router-dom';
 import { FaHome, FaCommentDots, FaClipboardList } from 'react-icons/fa';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { Dropdown, DropdownButton } from 'react-bootstrap';
+import api from '../../utils/api';  // Import the API utility
 
 
 // Register Chart.js components and plugins
 ChartJS.register(...registerables, ChartDataLabels);
 // Token refresh function
+// Token refresh function
 const refreshAccessToken = async (navigate) => {
   try {
-    const response = await fetch('http://localhost:8000/token/refresh/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ refresh: localStorage.getItem('refreshToken') }),
+    const response = await api.post('/token/refresh/', {
+      refresh: localStorage.getItem('refreshToken'),
     });
 
-    const data = await response.json();
-    if (response.ok) {
-      localStorage.setItem('token', data.access);
-      return data.access;
+    if (response.status === 200) {
+      localStorage.setItem('token', response.data.access);
+      return response.data.access;
     } else {
-      console.error('Refresh token invalid or expired:', data);
+      console.error('Refresh token invalid or expired:', response.data);
       navigate('/admin/login');
+      return null;
     }
   } catch (err) {
     console.error('Error refreshing access token:', err);
     navigate('/admin/login');
+    return null;
   }
 };
 
@@ -111,17 +110,17 @@ const Dashboard = () => {
       });
   
       // Initial request to fetch dashboard data
-      const response = await fetch(`http://localhost:8000/api/dashboard/?${queryParams.toString()}`, {
+      const response = await api.get(`/api/dashboard/?${queryParams.toString()}`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
       });
-  
+
       // Handle token expiration (401 Unauthorized) and refresh if needed
       if (response.status === 401) {
         accessToken = await refreshAccessToken(navigate);
         if (accessToken) {
-          const retryResponse = await fetch(`http://localhost:8000/api/dashboard/?${queryParams.toString()}`, {
+          const retryResponse = await api.get(`/api/dashboard/?${queryParams.toString()}`, {
             headers: {
               Authorization: `Bearer ${accessToken}`,
             },

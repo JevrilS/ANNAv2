@@ -10,11 +10,18 @@ staticfiles/
 # Virtual environments
 myenv/
 venv/
+*.log
+.git/
+.gcloudignore
+.gitignore
 
+# Ignore unnecessary development files
+tests/
+docs/
 # Environment variables and sensitive files
 *.env
 service_account.json
-
+*.map
 # Node modules (in case you have them somewhere)
 node_modules/
 

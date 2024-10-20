@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import 'bootstrap/dist/css/bootstrap.min.css';  // Import Bootstrap
 import Anna1 from '../../assets/Anna_1.svg';  // Import the image from your assets
+import api from '../../utils/api';  // Import the API utility
 
 const GuidanceLogin = () => {
   const [admin, setAdmin] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);  // New state for loading
+  const [loading, setLoading] = useState(false);  // State for loading
   const navigate = useNavigate();
   const isMounted = useRef(true);  // Use ref to track mounted status
   
@@ -15,18 +16,17 @@ const GuidanceLogin = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     
-    setLoading(true);  // Start loading
+    setLoading(true);  // Set loading to true at the start of the login process
     
     try {
-      const response = await fetch('http://localhost:8000/auth/guidance-login/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ admin, password }),
+      const response = await api.post('/auth/guidance-login/', {
+        admin,
+        password,
       });
 
-      const data = await response.json();
+      const data = response.data;
 
-      if (isMounted.current && response.ok && data.access && data.refresh) {
+      if (isMounted.current && response.status === 200 && data.access && data.refresh) {
         // Store tokens only if they exist
         localStorage.setItem('token', data.access);  
         localStorage.setItem('refreshToken', data.refresh);  
@@ -49,17 +49,15 @@ const GuidanceLogin = () => {
       }
     } finally {
       if (isMounted.current) {
-        setLoading(false);  // Stop loading
+        setLoading(false);  // Set loading to false at the end of the login process
       }
     }
   };
 
   // Cleanup function to avoid state updates on an unmounted component
   useEffect(() => {
-    // When the component is mounted, set isMounted to true
     isMounted.current = true;
     
-    // Cleanup function: when the component unmounts, set isMounted to false
     return () => {
       isMounted.current = false;
     };
@@ -108,7 +106,7 @@ const GuidanceLogin = () => {
               className="btn btn-warning btn-block w-100"
               disabled={loading}  // Disable button when loading
             >
-              {loading ? 'Logging in...' : 'Login'}
+              {loading ? 'Logging in...' : 'Login'}  {/* Show loading state */}
             </button>
           </form>
         </div>

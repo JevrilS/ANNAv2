@@ -64,11 +64,7 @@ ADMIN_GOOGLE_CLIENT_EMAIL = os.getenv('ADMIN_GOOGLE_CLIENT_EMAIL')
 # Security settings
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-0(lkz%-&m^)ow+n&vk=se9!@rg@2#&gu3pe6&40_q-j)wvbltj')
 DEBUG = True
-ALLOWED_HOSTS = [
-    'localhost', '127.0.0.1', 
-    'UIC.localhost', 'school1.localhost', 
-    'uic.localhost', 'school1.localhost:3000'
-]
+ALLOWED_HOSTS = ['*']
 
 # Django REST framework settings
 REST_FRAMEWORK = {
@@ -91,6 +87,9 @@ SIMPLE_JWT = {
 }
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    'https://react-frontend-807323421144.asia-northeast1.run.app',  # Add your frontend URL
+
+    
 ]
 # CORS settings
 CORS_ALLOW_CREDENTIALS = True
@@ -105,7 +104,8 @@ CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000", "http://localhost:8000", 
     "http://uic.localhost:8000", "http://127.0.0.1:3000", 
-    "http://school1.localhost:3000", "http://uic.localhost:3000",
+    "http://school1.localhost:3000", "http://uic.localhost:3000",  
+    'https://react-frontend-807323421144.asia-northeast1.run.app',
 ]
 
 # Applications listed in SHARED_APPS will be synced to the public schema
@@ -155,6 +155,7 @@ LOGGING = {
 # Middleware configuration
 MIDDLEWARE = [
     'django_tenants.middleware.main.TenantMainMiddleware',
+    'custom_auth.middleware.SchemaLoggerMiddleware', 
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -163,7 +164,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'custom_auth.middleware.SchemaLoggerMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -200,13 +200,15 @@ AUTH_USER_MODEL = 'custom_auth.User'
 DATABASES = {
     'default': {
         'ENGINE': 'django_tenants.postgresql_backend',
-        'NAME': 'ANNA',
-        'USER': 'postgres',
-        'PASSWORD': '1234',
-        'HOST': 'localhost',
+        'NAME': 'postgres',  # Your PostgreSQL database name
+        'USER': 'postgres',  # Your PostgreSQL username
+        'PASSWORD': 'L1v#&*_=n|)b-%;A',  # Your PostgreSQL password
+        'HOST': '/cloudsql/annadialogflow:asia-northeast1:anna',  # Cloud SQL instance
         'PORT': '5432',
     }
 }
+
+
 
 DATABASE_ROUTERS = ('django_tenants.routers.TenantSyncRouter',)
 
@@ -253,3 +255,4 @@ EMAIL_MAIL_HTML = 'activation_email.html'
 EMAIL_MAIL_PLAIN = 'activation_email.txt'  # Optionally create a plain text version
 EMAIL_MAIL_TOKEN_LIFE = 60 * 60  # Token life in seconds (1 hour)
 EMAIL_MAIL_PAGE_TEMPLATE = 'email_success_template.html'
+CUSTOM_SALT = 'some_random_secret_salt_string'

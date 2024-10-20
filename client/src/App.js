@@ -5,6 +5,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState, useRef } from 'react';
 import { ModalProvider, ModalRenderer } from 'react-modal-state';
+import api from './utils/api';  // Import the API utility
 
 // Pages and Components
 import AccountDetails from './components/pages/AccountDetails';
@@ -37,18 +38,15 @@ function App() {
 
   const refreshAccessToken = async () => {
     try {
-      const response = await fetch('http://localhost:8000/token/refresh/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh: localStorage.getItem('refreshToken') }),
+      const response = await api.post('/token/refresh/', {
+        refresh: localStorage.getItem('refreshToken'),
       });
 
-      const data = await response.json();
-      if (response.ok) {
-        localStorage.setItem('token', data.access);
-        return data.access;
+      if (response.status === 200) {
+        localStorage.setItem('token', response.data.access);
+        return response.data.access;
       } else {
-        console.error('Refresh token invalid or expired:', data);
+        console.error('Refresh token invalid or expired:', response.data);
         return null;
       }
     } catch (err) {
@@ -68,29 +66,22 @@ function App() {
         return;
       }
 
-      const response = await fetch('http://localhost:8000/auth/is-verify/', {
-        method: 'GET',
+      const response = await api.get('/auth/is-verify/', {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
         },
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data === true) {
+      if (response.status === 200 && response.data === true) {
+        setIsAuthenticated(true);
+      } else if (refreshToken) {
+        const refreshedToken = await refreshAccessToken();
+        if (refreshedToken) {
           setIsAuthenticated(true);
-        } else if (refreshToken) {
-          const refreshedToken = await refreshAccessToken();
-          if (refreshedToken) {
-            setIsAuthenticated(true);
-          } else {
-            setIsAuthenticated(false);
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
-          }
         } else {
           setIsAuthenticated(false);
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
         }
       } else {
         setIsAuthenticated(false);
@@ -103,7 +94,7 @@ function App() {
   };
 
   useEffect(() => {
-    verify(); // Check authentication status on mount
+    verify();  // Verify authentication status on component mount
   }, []);
 
   const ChatbotContextValue = {

@@ -1,0 +1,11 @@
+runtime: nodejs18
+
+handlers:
+  # Serve static files from the build directory
+  - url: /static
+    static_dir: build/static
+
+  # Catch-all route to serve React's index.html (SPA routing)
+  - url: /.*
+    static_files: build/index.html
+    upload: build/index.html

@@ -17,7 +17,8 @@ import RecommendedCoursesQuickReply from './RecommendedCoursesQuickReply';
 import { titleCase } from '../../utils/utilityFunctions';
 
 import '../../styles/chatbot.css';
-
+import apiNode from './apiNode';
+import api from '../../utils/api';
 const cookies = new Cookies();
 
 const Chatbot = () => {
@@ -83,42 +84,47 @@ const Chatbot = () => {
    
        // Function to make the check_login_status request
        const checkLoginStatus = async (token) => {
-         const response = await fetch('http://localhost:8000/api/check_login_status/', {
-           method: 'GET',
+         const response = await api.get('/api/check_login_status/', {
            headers: {
-             'Content-Type': 'application/json',
              'Authorization': `Bearer ${token}`, // Send the token in the Authorization header
            },
          });
          return response;
        };
-   
-       // Initial request to check login status using access token
-       let response = await checkLoginStatus(accessToken);
-   
-       // If token is expired (401), refresh the token
-       if (response.status === 401 && refreshToken) {
-         const refreshResponse = await fetch('http://localhost:8000/api/token/refresh/', {
-           method: 'POST',
-           headers: {
-             'Content-Type': 'application/json',
-           },
-           body: JSON.stringify({ refresh: refreshToken }), // Send refresh token to get a new access token
-         });
-   
-         const refreshData = await refreshResponse.json();
-         if (refreshResponse.status === 200) {
-           // Save the new access token and retry the original request
-           localStorage.setItem('token', refreshData.access);
-           response = await checkLoginStatus(refreshData.access);
-         } else {
-           // If refresh token is invalid or expired, treat as logged out
-           setIsLoggedIn(false);
-           setUser(null); // Clear user data
-           return;
-         }
-       }
-   
+       
+   // Initial request to check login status using access token
+let response = await checkLoginStatus(accessToken);
+
+// If token is expired (401), refresh the token
+if (response.status === 401 && refreshToken) {
+  try {
+    // Make the request to refresh the token
+    const refreshResponse = await api.post('/api/token/refresh/', {
+      refresh: refreshToken, // Send the refresh token to get a new access token
+    });
+
+    const refreshData = refreshResponse.data;
+
+    if (refreshResponse.status === 200) {
+      // Save the new access token and retry the original request
+      localStorage.setItem('token', refreshData.access);
+
+      // Retry the check_login_status request with the new token
+      response = await checkLoginStatus(refreshData.access);
+    } else {
+      // If refresh token is invalid or expired, treat as logged out
+      setIsLoggedIn(false);
+      setUser(null); // Clear user data
+      return;
+    }
+  } catch (error) {
+    console.error('Error refreshing token:', error);
+    setIsLoggedIn(false); // Mark as logged out in case of error
+    setUser(null); // Clear user data
+    return;
+  }
+}
+
        // Process the login status response
        const data = await response.json();
        if (response.status === 200 && data.is_logged_in && data.user_data) {
@@ -165,325 +171,327 @@ const Chatbot = () => {
    
    const df_text_query = async (text, parameters) => {
       let userSays = {
-         speaks: 'user',
-         msg: {
-            text: {
-               text: text,
-            },
-         },
+        speaks: 'user',
+        msg: {
+          text: {
+            text: text,
+          },
+        },
       };
-   
-      // remove any preceding quick reply message before appending the user message
+    
+      // Remove any preceding quick reply message before appending the user message
       if (
-         messages[messages.length - 1].msg.payload &&
-         messages[messages.length - 1].msg.payload.fields &&
-         messages[messages.length - 1].msg.payload.fields.quick_replies
+        messages[messages.length - 1].msg.payload &&
+        messages[messages.length - 1].msg.payload.fields &&
+        messages[messages.length - 1].msg.payload.fields.quick_replies
       ) {
-         removeQuickRepliesAfterType(messages, setMessages);
+        removeQuickRepliesAfterType(messages, setMessages);
       }
-   
-      setMessages(prev => [...prev, userSays]);
+    
+      setMessages((prev) => [...prev, userSays]);
       setBotChatLoading(true);
-   
+    
       try {
-         const body = { text, userId: cookies.get('userId'), parameters };
-         const response = await fetch('http://localhost:5000/api/df_text_query/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-         });
-         const data = await response.json();
-         setBotChatLoading(false);
-         console.dir(data);
-   
-         // provide message if response status 200, elese need to add chatbot message if server error 500
-         if (response.status === 200 && data) {
-            if (data.intent && data.intent.displayName === 'Default Welcome Intent') {
-               clearState();
-            } else if (!data.intent || endConversation) {
-               // trigger if the conversation was ended because of fallback exceed trigger limit
-               // or trigger if no other intent match, such as expired context or exceed 20mins
-               df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
-               clearState();
-               setEndConversation(true);
-            } else if (data.intent && data.intent.isFallback) {
-               // set fallbackCount if fallback is trigger
-               const intentName = data.intent.displayName;
-               if (fallbackCount[`${intentName}`] >= 5) {
-                  console.log('fallbackCount = ', fallbackCount[`${intentName}`]);
-                  df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
-                  clearState();
-                  setEndConversation(true);
-                  return;
-               }
-   
-               // object intent name does not exist assign 1 else if exisit just increment by 1
-               if (!fallbackCount[`${intentName}`]) setFallbackCount(prev => ({ ...prev, [intentName]: 1 }));
-               else setFallbackCount(prev => ({ ...prev, [intentName]: prev[`${intentName}`] + 1 }));
+        const body = { text, userId: cookies.get('userId'), parameters };
+        
+        // Make the Axios POST request
+        const response = await apiNode.post('/api/df_text_query/', body);
+        const data = response.data;
+        setBotChatLoading(false);
+        console.dir(data);
+    
+        // Handle successful response
+        if (response.status === 200 && data) {
+          if (data.intent && data.intent.displayName === 'Default Welcome Intent') {
+            clearState();
+          } else if (!data.intent || endConversation) {
+            // Trigger if conversation was ended because of fallback exceed trigger limit
+            // Or no other intent matches, such as expired context or exceeding 20 minutes
+            df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
+            clearState();
+            setEndConversation(true);
+          } else if (data.intent && data.intent.isFallback) {
+            // Set fallbackCount if fallback is triggered
+            const intentName = data.intent.displayName;
+            if (fallbackCount[`${intentName}`] >= 5) {
+              console.log('fallbackCount = ', fallbackCount[`${intentName}`]);
+              df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
+              clearState();
+              setEndConversation(true);
+              return;
             }
-   
-            if (data.parameters.fields) {
-               // get parameters data and set it to state
-               const fields = data.parameters.fields;
-               if (fields.name) setUser(prev => ({ ...prev, name: fields.name.stringValue }));
-               else if (fields.age) setUser(prev => ({ ...prev, age: fields.age.numberValue }));
-               else if (fields.sex) setUser(prev => ({ ...prev, sex: fields.sex.stringValue }));
-               else if (fields.strand) setUser(prev => ({ ...prev, strand: fields.strand.stringValue }));
+    
+            // Increment fallback count or initialize it
+            if (!fallbackCount[`${intentName}`]) {
+              setFallbackCount((prev) => ({ ...prev, [intentName]: 1 }));
+            } else {
+              setFallbackCount((prev) => ({
+                ...prev,
+                [intentName]: prev[`${intentName}`] + 1,
+              }));
             }
-   
-            // Log the value of user.strand before triggering the STRAND_RECOMMENDATION event
-            console.log("Strand being sent to Dialogflow:", user.strand);
-   
-            data.fulfillmentMessages.forEach(async msg => {
-               const botSays = {
-                  speaks: 'bot',
-                  msg: msg,
-               };
-               setMessages(prev => [...prev, botSays]);
-   
-               // trigger something based on the payload sent by dialogflow
-               if (msg.payload && msg.payload.fields && msg.payload.fields.riasec) {
-                  const riasecValue = msg.payload.fields.riasec.stringValue;
-                  switch (riasecValue) {
-                     case 'realistic':
-                        setRiasec(prev => ({ ...prev, realistic: prev.realistic + 1 }));
-                        break;
-                     case 'investigative':
-                        setRiasec(prev => ({ ...prev, investigative: prev.investigative + 1 }));
-                        break;
-                     case 'artistic':
-                        setRiasec(prev => ({ ...prev, artistic: prev.artistic + 1 }));
-                        break;
-                     case 'social':
-                        setRiasec(prev => ({ ...prev, social: prev.social + 1 }));
-                        break;
-                     case 'enterprising':
-                        if (msg.payload.fields.riasec_last_question) {
-                           handleRiasecRecommendation({ ...riasec, enterprising: riasec.enterprising + 1 });
-                        }
-                        setRiasec(prev => ({ ...prev, enterprising: prev.enterprising + 1 }));
-                        break;
-                     case 'conventional':
-                        setRiasec(prev => ({ ...prev, conventional: prev.conventional + 1 }));
-                        break;
-                  }
-               }
-               if (msg.payload && msg.payload.fields && !msg.payload.fields.riasec && msg.payload.fields.riasec_last_question) {
-                  handleRiasecRecommendation(riasec);
-               }
-               if (msg.payload && msg.payload.fields && msg.payload.fields.iswant_strand_recommendation) {
-                  // Log the strand again before sending to Dialogflow
-                  console.log("Sending strand to STRAND_RECOMMENDATION event:", user.strand);
-                  df_event_query('STRAND_RECOMMENDATION', { strand: user.strand });
-                  setIsRecommendationProvided(prev => ({ ...prev, strand: 'done' }));
-               }
-            });
-         } else {
+          }
+    
+          if (data.parameters.fields) {
+            // Get parameters data and set it to state
+            const fields = data.parameters.fields;
+            if (fields.name) setUser((prev) => ({ ...prev, name: fields.name.stringValue }));
+            if (fields.age) setUser((prev) => ({ ...prev, age: fields.age.numberValue }));
+            if (fields.sex) setUser((prev) => ({ ...prev, sex: fields.sex.stringValue }));
+            if (fields.strand) setUser((prev) => ({ ...prev, strand: fields.strand.stringValue }));
+          }
+    
+          // Log the strand before triggering STRAND_RECOMMENDATION
+          console.log('Strand being sent to Dialogflow:', user.strand);
+    
+          // Handle fulfillment messages from Dialogflow
+          data.fulfillmentMessages.forEach(async (msg) => {
             const botSays = {
-               speaks: 'bot',
-               msg: {
-                  text: {
-                     text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
-                  },
-               },
+              speaks: 'bot',
+              msg: msg,
             };
-            setMessages(prev => [...prev, botSays]);
-         }
-      } catch (err) {
-         console.log(err.message);
-   
-         setBotChatLoading(false);
-         const botSays = {
+            setMessages((prev) => [...prev, botSays]);
+    
+            // Trigger RIASEC event based on payload
+            if (msg.payload && msg.payload.fields && msg.payload.fields.riasec) {
+              const riasecValue = msg.payload.fields.riasec.stringValue;
+              switch (riasecValue) {
+                case 'realistic':
+                  setRiasec((prev) => ({ ...prev, realistic: prev.realistic + 1 }));
+                  break;
+                case 'investigative':
+                  setRiasec((prev) => ({ ...prev, investigative: prev.investigative + 1 }));
+                  break;
+                case 'artistic':
+                  setRiasec((prev) => ({ ...prev, artistic: prev.artistic + 1 }));
+                  break;
+                case 'social':
+                  setRiasec((prev) => ({ ...prev, social: prev.social + 1 }));
+                  break;
+                case 'enterprising':
+                  if (msg.payload.fields.riasec_last_question) {
+                    handleRiasecRecommendation({ ...riasec, enterprising: riasec.enterprising + 1 });
+                  }
+                  setRiasec((prev) => ({ ...prev, enterprising: prev.enterprising + 1 }));
+                  break;
+                case 'conventional':
+                  setRiasec((prev) => ({ ...prev, conventional: prev.conventional + 1 }));
+                  break;
+              }
+            }
+            if (msg.payload && msg.payload.fields && !msg.payload.fields.riasec && msg.payload.fields.riasec_last_question) {
+              handleRiasecRecommendation(riasec);
+            }
+            if (msg.payload && msg.payload.fields && msg.payload.fields.iswant_strand_recommendation) {
+              // Log strand again before sending to STRAND_RECOMMENDATION
+              console.log('Sending strand to STRAND_RECOMMENDATION event:', user.strand);
+              df_event_query('STRAND_RECOMMENDATION', { strand: user.strand });
+              setIsRecommendationProvided((prev) => ({ ...prev, strand: 'done' }));
+            }
+          });
+        } else {
+          // Handle error response
+          const botSays = {
             speaks: 'bot',
             msg: {
-               text: {
-                  text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
-               },
-            },
-         };
-         setMessages(prev => [...prev, botSays]);
-      }
-   };
-   const df_event_query = async (event, parameters) => {
-      try {
-          setBotChatLoading(true);
-  
-          // Log and check the parameters before sending to Dialogflow
-          if (!parameters) {
-              console.warn(`Parameters are missing for event: ${event}`);
-          } else {
-              console.log("Parameters being sent:", parameters);
-  
-              // Normalize the strand parameter by trimming and converting it to lowercase
-              if (parameters.strand) {
-                  const cleanedStrand = parameters.strand.trim().toLowerCase(); // Normalize the strand
-                  console.log("Normalized strand being sent:", cleanedStrand);
-              }
-          }
-  
-          // Prepare the body to send to Dialogflow
-          const body = {
-              event,
-              userId: cookies.get('userId'),
-              parameters: parameters || {}  // Ensure parameters are never undefined
-          };
-  
-          console.log('Sending event to Dialogflow:', body); // Log the request body being sent to Dialogflow
-  
-          const response = await fetch('http://localhost:5000/api/df_event_query/', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body),
-          });
-  
-          const data = await response.json();
-  
-          console.log('Dialogflow response:', data); // Log the Dialogflow response
-  
-          setBotChatLoading(false);
-  
-          if (response.status === 200 && data) {
-              // Clear all state when welcome intent is triggered
-              if (data.intent && data.intent.displayName === 'Default Welcome Intent') {
-                  clearState();
-              } else if (!data.intent) {
-                  // Trigger if no other intent match, such as expired context or exceed 20mins
-                  df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
-                  clearState();
-                  setEndConversation(true);
-                  setDisabledInput(false);
-                  setIsVisibleInput(true);
-              }
-  
-              data.fulfillmentMessages.forEach(async (msg) => {
-                  const botSays = {
-                      speaks: 'bot',
-                      msg: msg,
-                  };
-                  setMessages(prev => [...prev, botSays]);
-  
-                  if (msg.payload && msg.payload.fields) {
-                      // Handle strand recommendation trigger
-                      if (msg.payload.fields.iswant_strand_recommendation) {
-                          console.log("Sending strand to STRAND_RECOMMENDATION event:", parameters.strand);  // Log the strand being sent
-                          df_event_query('STRAND_RECOMMENDATION', { strand: user.strand });
-                          setIsRecommendationProvided(prev => ({ ...prev, strand: 'done' }));
-                      }
-  
-                      // Handle RIASEC logic
-                      if (msg.payload.fields.riasec) {
-                          const riasecValue = msg.payload.fields.riasec.stringValue;
-  
-                          setRiasec(prev => {
-                              const updatedRiasec = { ...prev };
-  
-                              switch (riasecValue) {
-                                  case 'realistic':
-                                      updatedRiasec.realistic += 1;
-                                      break;
-                                  case 'investigative':
-                                      updatedRiasec.investigative += 1;
-                                      break;
-                                  case 'artistic':
-                                      updatedRiasec.artistic += 1;
-                                      break;
-                                  case 'social':
-                                      updatedRiasec.social += 1;
-                                      break;
-                                  case 'enterprising':
-                                      updatedRiasec.enterprising += 1;
-                                      // Handle the last question if flagged
-                                      if (msg.payload.fields.riasec_last_question) {
-                                          handleRiasecRecommendation(updatedRiasec);
-                                      }
-                                      break;
-                                  case 'conventional':
-                                      updatedRiasec.conventional += 1;
-                                      break;
-                                  default:
-                                      console.warn(`Unknown RIASEC value: ${riasecValue}`);
-                                      break;
-                              }
-  
-                              return updatedRiasec;
-                          });
-                      }
-  
-                      if (msg.payload.fields.no_riasec_recommended_courses) {
-                          setIsRecommendationProvided(prev => ({ ...prev, riasec: '' }));
-                      }
-  
-                      if (msg.payload.fields.riasec_recommended_courses) {
-                          const recommendedCourses = msg.payload.fields.riasec_recommended_courses.listValue.values;
-                          setRiasecBasedRecommendedCourses(recommendedCourses.map(course => course.stringValue));
-                      }
-  
-                      if (msg.payload.fields.strand_recommended_courses) {
-                          const recommendedCourses = msg.payload.fields.strand_recommended_courses.listValue.values;
-                          console.log('Courses received:', recommendedCourses);  // Log the courses received
-                          setStrandBasedRecommendedCourses(recommendedCourses.map(course => course.stringValue));
-                      }
-  
-                      if (msg.payload.fields.end_conversation) {
-                          savedConversation(user, riasecCode, riasecBasedRecommendedCourses, strandBasedRecommendedCourses);
-                          clearState();
-                          setDisabledInput(true);
-                          setIsVisibleInput(false);
-                      }
-                  }
-              });
-          } else {
-              const botSays = {
-                  speaks: 'bot',
-                  msg: {
-                      text: {
-                          text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
-                      },
-                  },
-              };
-  
-              setMessages(prev => [...prev, botSays]);
-          }
-      } catch (err) {
-          console.log('Error sending event to Dialogflow:', err.message);
-          setBotChatLoading(false);
-          const botSays = {
-              speaks: 'bot',
-              msg: {
-                  text: {
-                      text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
-                  },
+              text: {
+                text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
               },
+            },
           };
-  
-          setMessages(prev => [...prev, botSays]);
+          setMessages((prev) => [...prev, botSays]);
+        }
+      } catch (err) {
+        // Handle error
+        console.log(err.message);
+        setBotChatLoading(false);
+        const botSays = {
+          speaks: 'bot',
+          msg: {
+            text: {
+              text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
+            },
+          },
+        };
+        setMessages((prev) => [...prev, botSays]);
       }
-  };
-  
-  
-   const triggerCourseOptionYes = () => {
-      // this will keep the context exceeds the time limit of 20mins, because users might take time watching the videos
-      // after the  course options was rendered, trigger the course option timer after 15 minutes to reset the timer of the intent's context
-      // will be cleared after clicking "continue" quick reply
-      // only trigger the timer when courseOptionsTimer is empty or no courseOptiontimer tiggered to avoid duplication of timer when component is rendered again
-      // timer will still tigger even card component is unmounted
-      if (!courseOptionsTimer) {
-         const timerId = setInterval(async () => {
-            try {
-               const body = { event: 'COURSE_OPTIONS_YES', userId: cookies.get('userId') };
-               await fetch('/api/df_event_query', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(body),
-               });
-               console.log('course options timer triggered!');
-            } catch (err) {
-               console.error(err.message);
+    };
+    
+    const df_event_query = async (event, parameters) => {
+      try {
+        setBotChatLoading(true);
+    
+        // Log and check the parameters before sending to Dialogflow
+        if (!parameters) {
+          console.warn(`Parameters are missing for event: ${event}`);
+        } else {
+          console.log("Parameters being sent:", parameters);
+    
+          // Normalize the strand parameter by trimming and converting it to lowercase
+          if (parameters.strand) {
+            const cleanedStrand = parameters.strand.trim().toLowerCase(); // Normalize the strand
+            console.log("Normalized strand being sent:", cleanedStrand);
+          }
+        }
+    
+        // Prepare the body to send to Dialogflow
+        const body = {
+          event,
+          userId: cookies.get('userId'),
+          parameters: parameters || {}, // Ensure parameters are never undefined
+        };
+    
+        console.log('Sending event to Dialogflow:', body); // Log the request body being sent to Dialogflow
+    
+        // Make the Axios POST request
+        const response = await apiNode.post('/api/df_event_query/', body);
+        const data = response.data;
+    
+        console.log('Dialogflow response:', data); // Log the Dialogflow response
+    
+        setBotChatLoading(false);
+    
+        if (response.status === 200 && data) {
+          // Clear all state when welcome intent is triggered
+          if (data.intent && data.intent.displayName === 'Default Welcome Intent') {
+            clearState();
+          } else if (!data.intent) {
+            // Trigger if no other intent matches, such as expired context or exceeding 20 minutes
+            df_event_query('FALLBACK_EXCEED_TRIGGER_LIMIT');
+            clearState();
+            setEndConversation(true);
+            setDisabledInput(false);
+            setIsVisibleInput(true);
+          }
+    
+          // Process the fulfillment messages from Dialogflow
+          data.fulfillmentMessages.forEach(async (msg) => {
+            const botSays = {
+              speaks: 'bot',
+              msg: msg,
+            };
+            setMessages((prev) => [...prev, botSays]);
+    
+            if (msg.payload && msg.payload.fields) {
+              // Handle strand recommendation trigger
+              if (msg.payload.fields.iswant_strand_recommendation) {
+                console.log("Sending strand to STRAND_RECOMMENDATION event:", parameters.strand); // Log the strand being sent
+                df_event_query('STRAND_RECOMMENDATION', { strand: user.strand });
+                setIsRecommendationProvided((prev) => ({ ...prev, strand: 'done' }));
+              }
+    
+              // Handle RIASEC logic
+              if (msg.payload.fields.riasec) {
+                const riasecValue = msg.payload.fields.riasec.stringValue;
+    
+                setRiasec((prev) => {
+                  const updatedRiasec = { ...prev };
+    
+                  switch (riasecValue) {
+                    case 'realistic':
+                      updatedRiasec.realistic += 1;
+                      break;
+                    case 'investigative':
+                      updatedRiasec.investigative += 1;
+                      break;
+                    case 'artistic':
+                      updatedRiasec.artistic += 1;
+                      break;
+                    case 'social':
+                      updatedRiasec.social += 1;
+                      break;
+                    case 'enterprising':
+                      updatedRiasec.enterprising += 1;
+                      // Handle the last question if flagged
+                      if (msg.payload.fields.riasec_last_question) {
+                        handleRiasecRecommendation(updatedRiasec);
+                      }
+                      break;
+                    case 'conventional':
+                      updatedRiasec.conventional += 1;
+                      break;
+                    default:
+                      console.warn(`Unknown RIASEC value: ${riasecValue}`);
+                      break;
+                  }
+    
+                  return updatedRiasec;
+                });
+              }
+    
+              if (msg.payload.fields.no_riasec_recommended_courses) {
+                setIsRecommendationProvided((prev) => ({ ...prev, riasec: '' }));
+              }
+    
+              if (msg.payload.fields.riasec_recommended_courses) {
+                const recommendedCourses = msg.payload.fields.riasec_recommended_courses.listValue.values;
+                setRiasecBasedRecommendedCourses(recommendedCourses.map((course) => course.stringValue));
+              }
+    
+              if (msg.payload.fields.strand_recommended_courses) {
+                const recommendedCourses = msg.payload.fields.strand_recommended_courses.listValue.values;
+                console.log('Courses received:', recommendedCourses); // Log the courses received
+                setStrandBasedRecommendedCourses(recommendedCourses.map((course) => course.stringValue));
+              }
+    
+              if (msg.payload.fields.end_conversation) {
+                savedConversation(user, riasecCode, riasecBasedRecommendedCourses, strandBasedRecommendedCourses);
+                clearState();
+                setDisabledInput(true);
+                setIsVisibleInput(false);
+              }
             }
-         }, 900000);
-         setCourseOptionsTimer(timerId);
+          });
+        } else {
+          // Handle error response
+          const botSays = {
+            speaks: 'bot',
+            msg: {
+              text: {
+                text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
+              },
+            },
+          };
+    
+          setMessages((prev) => [...prev, botSays]);
+        }
+      } catch (err) {
+        // Handle error
+        console.log('Error sending event to Dialogflow:', err.message);
+        setBotChatLoading(false);
+        const botSays = {
+          speaks: 'bot',
+          msg: {
+            text: {
+              text: 'Sorry. I am having trouble 🤕. I need to terminate. Will be back later.',
+            },
+          },
+        };
+    
+        setMessages((prev) => [...prev, botSays]);
       }
-   };
+    };
+    
+  
+    const triggerCourseOptionYes = () => {
+      if (!courseOptionsTimer) {
+        const timerId = setInterval(async () => {
+          try {
+            const body = { event: 'COURSE_OPTIONS_YES', userId: cookies.get('userId') };
+            await apiNode.post('/api/df_event_query', body, {
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            });
+            console.log('course options timer triggered!');
+          } catch (err) {
+            console.error(err.message);
+          }
+        }, 900000);
+        setCourseOptionsTimer(timerId);
+      }
+    };
+    
 
    const clearCourseOptionsYes = () => {
       // clear the timer
@@ -554,109 +562,95 @@ const Chatbot = () => {
 
    const refreshAccessToken = async () => {
       try {
-          const refreshToken = localStorage.getItem('refreshToken');
-  
-          if (!refreshToken) {
-              console.error('No refresh token found.');
-              return null;
-          }
-  
-          const response = await fetch('http://localhost:8000/api/token/refresh/', {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ refresh: refreshToken }),
-          });
-  
-          const data = await response.json();
-  
-          if (response.status === 200) {
-              localStorage.setItem('token', data.access);  // Store new access token
-              return data.access;
-          } else {
-              console.error('Error refreshing token:', data);
-              return null;
-          }
-      } catch (err) {
-          console.error('Error refreshing access token:', err.message);
+        const refreshToken = localStorage.getItem('refreshToken');
+    
+        if (!refreshToken) {
+          console.error('No refresh token found.');
           return null;
+        }
+    
+        const response = await apiNode.post('/api/token/refresh/', { refresh: refreshToken });
+    
+        if (response.status === 200) {
+          localStorage.setItem('token', response.data.access); // Store new access token
+          return response.data.access;
+        } else {
+          console.error('Error refreshing token:', response.data);
+          return null;
+        }
+      } catch (err) {
+        console.error('Error refreshing access token:', err.message);
+        return null;
       }
-  };
-  const savedConversation = async (user, riasecCode, riasecCourses, strandCourses) => {
-   try {
-       let token = localStorage.getItem('token'); // Get JWT access token
-
-       if (!token) {
-           console.error('No JWT access token found.');
-           return;
-       }
-
-       // Prepare body data including individual RIASEC scores and grade level
-       const body = {
-           name: titleCase(user.name),  // Title case the name
-           age: user.age,
-           sex: user.sex,
-           strand: user.strand,
-           grade_level: user.gradeLevel,  // Use grade_level for the database field
-           riasec_code: riasecCode,  // Array of RIASEC codes
-           riasec_course_recommendation: riasecCourses,  // Array of recommended courses based on RIASEC
-           strand_course_recommendation: strandCourses,  // Array of strand-based recommended courses
-           realistic_score: riasec.realistic,  // Realistic score
-           investigative_score: riasec.investigative,  // Investigative score
-           artistic_score: riasec.artistic,  // Artistic score
-           social_score: riasec.social,  // Social score
-           enterprising_score: riasec.enterprising,  // Enterprising score
-           conventional_score: riasec.conventional  // Conventional score
-       };
-
-       // Send conversation data to the backend
-       const response = await fetch('http://localhost:8000/api/save-conversation/', {
-           method: 'POST',
-           headers: {
-               'Content-Type': 'application/json',
-               'Authorization': `Bearer ${token}`,  // Include JWT token in Authorization header
-           },
-           body: JSON.stringify(body),  // Convert to JSON string
-       });
-
-       if (response.status === 401) {
-           console.warn('Access token expired or invalid, attempting to refresh...');
-           token = await refreshAccessToken();  // Refresh token if expired
-
-           if (!token) {
-               console.error('Failed to refresh access token.');
-               return;
-           }
-
-           // Retry saving the conversation with the refreshed token
-           const retryResponse = await fetch('http://localhost:8000/api/save-conversation/', {
-               method: 'POST',
-               headers: {
-                   'Content-Type': 'application/json',
-                   'Authorization': `Bearer ${token}`,
-               },
-               body: JSON.stringify(body),
-           });
-
-           const retryData = await retryResponse.json();
-           if (retryResponse.status === 200) {
-               console.log('Conversation saved successfully after token refresh:', retryData.message);
-           } else {
-               console.error('Error saving conversation after token refresh:', retryData.error);
-           }
-       } else if (response.status === 200) {
-           const data = await response.json();
-           console.log('Conversation saved successfully:', data.message);
-       } else {
-           const errorData = await response.json();
-           console.error('Error saving conversation:', errorData.error);
-       }
-   } catch (err) {
-       console.error('Unexpected error saving conversation:', err.message);
-   }
-};
-
+    };
+    
+    const savedConversation = async (user, riasecCode, riasecCourses, strandCourses) => {
+      try {
+        let token = localStorage.getItem('token'); // Get JWT access token
+    
+        if (!token) {
+          console.error('No JWT access token found.');
+          return;
+        }
+    
+        // Prepare body data including individual RIASEC scores and grade level
+        const body = {
+          name: titleCase(user.name),  // Title case the name
+          age: user.age,
+          sex: user.sex,
+          strand: user.strand,
+          grade_level: user.gradeLevel,  // Use grade_level for the database field
+          riasec_code: riasecCode,  // Array of RIASEC codes
+          riasec_course_recommendation: riasecCourses,  // Array of recommended courses based on RIASEC
+          strand_course_recommendation: strandCourses,  // Array of strand-based recommended courses
+          realistic_score: riasec.realistic,  // Realistic score
+          investigative_score: riasec.investigative,  // Investigative score
+          artistic_score: riasec.artistic,  // Artistic score
+          social_score: riasec.social,  // Social score
+          enterprising_score: riasec.enterprising,  // Enterprising score
+          conventional_score: riasec.conventional  // Conventional score
+        };
+    
+        // Send conversation data to the backend using Axios
+        const response = await api.post('/api/save-conversation/', body, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,  // Include JWT token in Authorization header
+          },
+        });
+    
+        if (response.status === 200) {
+          console.log('Conversation saved successfully:', response.data.message);
+        } else if (response.status === 401) {
+          console.warn('Access token expired or invalid, attempting to refresh...');
+          token = await refreshAccessToken();  // Refresh token if expired
+    
+          if (!token) {
+            console.error('Failed to refresh access token.');
+            return;
+          }
+    
+          // Retry saving the conversation with the refreshed token
+          const retryResponse = await api.post('/api/save-conversation/', body, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+    
+          if (retryResponse.status === 200) {
+            console.log('Conversation saved successfully after token refresh:', retryResponse.data.message);
+          } else {
+            console.error('Error saving conversation after token refresh:', retryResponse.data.error);
+          }
+        } else {
+          console.error('Error saving conversation:', response.data.error);
+        }
+      } catch (err) {
+        console.error('Unexpected error saving conversation:', err.message);
+      }
+    };
+    
 
 
   
@@ -833,51 +827,56 @@ const Chatbot = () => {
          }, x * 1000);
       });
    };
-
-   const handleTermsConditionAgree = async () => {
-      setIsAgreeTermsConditions(true); // Set agreement to true
-      
-      try {
-         // Fetch user info to check login status
-         const accessToken = localStorage.getItem('token');
-         const response = await fetch('http://localhost:8000/api/check_login_status/', {
-            method: 'GET',
-            headers: {
-               'Content-Type': 'application/json',
-               'Authorization': `Bearer ${accessToken}`, // Send access token if available
-            },
-         });
    
-         const data = await response.json();
-         
-         if (data.is_logged_in && data.user_data) {
-            // User is logged in, trigger RIASEC_START
-            setUser({
-               name: data.user_data.name,
-               age: data.user_data.age,
-               sex: data.user_data.sex,
-               strand: data.user_data.strand,
-            });
-            const welcomeMessage = {
-               speaks: 'bot',
-               msg: {
-                  text: `Hello ${data.user_data.name}! Welcome back. Let's get started with your RIASEC test.`,
-               },
-            };
-            setMessages(prev => [...prev, welcomeMessage]);
-            
-            // Trigger RIASEC start event
-            df_event_query('RIASEC_START');
-         } else {
-            // User not logged in, trigger the Welcome intent
-            df_event_query('Welcome');
-         }
-      } catch (error) {
-         console.error('Error checking user login status:', error);
-         // Fallback to Welcome if there's an error
-         df_event_query('Welcome');
-      }
-   };
+   const handleTermsConditionAgree = async () => {
+    setIsAgreeTermsConditions(true); // Set agreement to true
+ 
+    try {
+       // Fetch user info to check login status
+       const accessToken = localStorage.getItem('token');
+       const response = await api.get('/api/check_login_status/', {
+          headers: {
+             'Authorization': `Bearer ${accessToken}`,
+          },
+       });
+ 
+       const data = response.data;
+       
+       if (data.is_logged_in && data.user_data) {
+          // User is logged in, trigger RIASEC_START
+          setUser({
+             name: data.user_data.name,
+             age: data.user_data.age,
+             sex: data.user_data.sex,
+             strand: data.user_data.strand,
+          });
+ 
+          // Auto-start chatbot
+          setShowbot(true);  // Ensure chatbot is shown
+ 
+          // Send a welcome message
+          const welcomeMessage = {
+             speaks: 'bot',
+             msg: {
+                text: `Hello ${data.user_data.name}! Welcome back. Let's get started with your RIASEC test.`,
+             },
+          };
+          setMessages(prev => [...prev, welcomeMessage]);
+ 
+          // Trigger RIASEC start event
+          df_event_query('RIASEC_START');
+       } else {
+          // User not logged in, trigger the Welcome intent
+          df_event_query('Welcome');
+       }
+    } catch (error) {
+       console.error('Error checking user login status:', error);
+       df_event_query('Welcome');
+    }
+ };
+ 
+
+    
    
 
    // const fetchCoursesByStrand = async () => {

@@ -21,7 +21,6 @@ window.jQuery = $;
 const LandingPage = () => {
   const [auth, setAuth] = useState(false); // Add state for authentication
   const { setShowbot } = useContext(ChatbotContext);
-  const [showTvlSubstrand, setShowTvlSubstrand] = useState(false);
 
   const [formData, setFormData] = useState({
     id_no: '',

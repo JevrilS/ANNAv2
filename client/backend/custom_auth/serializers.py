@@ -60,3 +60,14 @@ class ChangePasswordSerializer(serializers.Serializer):
         if data['new_password'] != data['confirm_new_password']:
             raise serializers.ValidationError({"message": "New passwords do not match"})
         return data
+    
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+
+        # Add the 'is_active' field to the response data
+        data['is_active'] = self.user.is_active
+        
+        return data

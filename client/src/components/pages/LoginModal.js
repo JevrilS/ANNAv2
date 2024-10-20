@@ -14,19 +14,22 @@ const LoginModal = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-
+  
     const loginData = {
       email: e.target.loginEmail.value,
       password: e.target.loginPassword.value,
     };
-
+  
     try {
       const response = await api.post('/auth/token/', loginData, {
         headers: {
           'Content-Type': 'application/json',
         },
       });
-
+  
+      // Log the full API response for debugging
+      console.log('API response:', response.data);
+  
       // Check if the response is successful
       if (response.status === 200) {
         // Check if the user's account is active
@@ -34,26 +37,32 @@ const LoginModal = () => {
           toast.warn('Please verify your account by clicking on the verification link sent to your email.');
           return; // Exit early if the account is not active
         }
-
+  
         // Set authenticated state and store tokens
         setIsAuthenticated(true);
         localStorage.setItem('authToken', response.data.access);
         localStorage.setItem('refreshToken', response.data.refresh);
-
+  
         toast.success('Login successful!');
         window.location.reload();
       } else {
         toast.error('Login failed. Please check your credentials.');
       }
     } catch (err) {
+      // Log the error for debugging
+      console.error('Login error:', err);
+  
       // Check for specific error responses to differentiate between errors
       if (err.response && err.response.status === 403) {
         toast.warn('Your account is not verified. Please check your email for the verification link.');
+      } else if (err.response && err.response.data.detail) {
+        toast.error(`Login failed: ${err.response.data.detail}`); // Display detailed error message from the backend
       } else {
         toast.error('Login failed. Please check your credentials.');
       }
     }
   };
+  
 
   const handleSignUp = () => {
     close(); // Close the LoginModal

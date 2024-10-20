@@ -1,0 +1,8 @@
+node_modules
+build
+.dockerignore
+.git
+.gitignore
+venv
+backend/venv
+*.log
