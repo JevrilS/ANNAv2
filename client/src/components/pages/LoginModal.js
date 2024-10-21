@@ -11,52 +11,52 @@ const LoginModal = () => {
   const { isOpen, close } = useModalInstance(); // Handles the current modal (LoginModal)
   const { setIsAuthenticated } = useContext(UserContext);
   const { open: openRegisterModal } = useModal('register'); // Destructure the open function from useModal
-
+  
   const handleLogin = async (e) => {
     e.preventDefault();
-  
+    
     const loginData = {
       email: e.target.loginEmail.value,
       password: e.target.loginPassword.value,
     };
-  
+    
     try {
-      const response = await api.post('/auth/token/', loginData, {
+      const response = await api.post('https://django-backend-807323421144.asia-northeast1.run.app/auth/token/', loginData, {
         headers: {
           'Content-Type': 'application/json',
         },
       });
   
-      // Log the full API response for debugging
-      console.log('API response:', response.data);
-  
-      // Check if the response is successful
       if (response.status === 200) {
-        // Check if the user's account is active
-        if (!response.data.is_active) {  // Ensure your API returns is_active in the response
+        if (!response.data.is_active) {
           toast.warn('Please verify your account by clicking on the verification link sent to your email.');
           return; // Exit early if the account is not active
         }
   
         // Set authenticated state and store tokens
-        setIsAuthenticated(true);
+        setIsAuthenticated(true);  // Update the context
         localStorage.setItem('authToken', response.data.access);
         localStorage.setItem('refreshToken', response.data.refresh);
+        localStorage.setItem('isAuthenticated', 'true'); // Save auth status in localStorage
   
+        // Notify login success
         toast.success('Login successful!');
-        window.location.reload();
+  
+        // Close the login modal
+        close();
+  
+        // Dispatch a custom event to refresh LandingPage and Chatbot
+        window.dispatchEvent(new Event('loginSuccess')); // Trigger the custom event
+  
       } else {
         toast.error('Login failed. Please check your credentials.');
       }
     } catch (err) {
-      // Log the error for debugging
       console.error('Login error:', err);
-  
-      // Check for specific error responses to differentiate between errors
       if (err.response && err.response.status === 403) {
         toast.warn('Your account is not verified. Please check your email for the verification link.');
       } else if (err.response && err.response.data.detail) {
-        toast.error(`Login failed: ${err.response.data.detail}`); // Display detailed error message from the backend
+        toast.error(`Login failed: ${err.response.data.detail}`);
       } else {
         toast.error('Login failed. Please check your credentials.');
       }

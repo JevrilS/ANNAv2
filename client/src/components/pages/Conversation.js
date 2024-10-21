@@ -3,6 +3,7 @@ import { Table, Form, Button, InputGroup, Row, Col, Pagination, Container, Modal
 import { FaEye } from 'react-icons/fa';
 import { Tabs, Tab } from 'react-bootstrap';
 import { CSVLink } from 'react-csv';
+import api from '../../utils/api';  // Import the API utility
 
 const Conversations = () => {
   const normalizeStrand = (strand) => strand.toLowerCase().replace(/[^a-z0-9]/g, '').trim(); // Lowercase, remove non-alphanumeric characters
@@ -23,27 +24,25 @@ const Conversations = () => {
 
   const refreshAccessToken = async (navigate) => {
     try {
-      const response = await fetch('/token/refresh/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refresh: localStorage.getItem('refreshToken') }),
+      const response = await api.post('/token/refresh/', {
+        refresh: localStorage.getItem('refreshToken'),
       });
-
-      const data = await response.json();
-      if (response.ok) {
-        localStorage.setItem('token', data.access);
-        return data.access;
+  
+      if (response.status === 200) {
+        localStorage.setItem('token', response.data.access);
+        return response.data.access;
       } else {
-        console.error('Refresh token invalid or expired:', data);
+        console.error('Refresh token invalid or expired:', response.data);
         navigate('/admin/login');
+        return null;
       }
     } catch (err) {
       console.error('Error refreshing access token:', err);
       navigate('/admin/login');
+      return null;
     }
   };
+  
   
   const [courses, setCourses] = useState([]); // New state for courses
 
@@ -56,44 +55,40 @@ useEffect(() => {
         strand: filters.strand !== 'Overall' ? filters.strand : '',
         school_year: filters.schoolYear !== 'Overall' ? filters.schoolYear : '',
       });
-
+  
       // Fetch conversations
-      const response = await fetch(`http://localhost:8000/get-conversations/?${queryParams.toString()}`, {
-        method: 'GET',
+      const response = await api.get(`/get-conversations/?${queryParams.toString()}`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
         },
       });
-
-      if (response.ok) {
-        const data = await response.json();
+  
+      if (response.status === 200) {
+        const data = response.data;
         console.log('Fetched Data:', data.conversations);
-
+  
         // Normalize and filter conversations based on strands
         const normalizedConversations = data.conversations.filter((conversation) => {
           const normalizedStrand = normalizeStrand(conversation.strand);
           const filterStrand = normalizeStrand(filters.strand);
-          console.log('Normalized Strand:', normalizedStrand);
-          console.log('Filter Strand:', filterStrand);
-
+  
           return normalizeStrand(filters.strand) === 'overall' || normalizedStrand === filterStrand;
         });
-
+  
         setConversations(normalizedConversations);
       } else {
         console.error('Failed to fetch conversations:', response.status, response.statusText);
       }
-
+  
       // Fetch courses with RIASEC areas
-      const courseResponse = await fetch('http://localhost:5000/api/courses');
-      const courseData = await courseResponse.json();
-      setCourses(courseData); // Save the fetched courses
+      const courseResponse = await api.get('https://node-backend-807323421144.asia-northeast1.run.app/api/courses');
+      setCourses(courseResponse.data); // Save the fetched courses
     } catch (error) {
       console.error('Failed to fetch conversations or courses:', error);
       setError(error.message);
     }
   };
+  
 
   fetchConversationsAndCourses();
 }, [filters, currentPage, itemsPerPage]);
@@ -129,30 +124,25 @@ useEffect(() => {
     });
   };
 
-  // Fetch user details from the database
- // Fetch user details from the database
-const fetchUserDetails = async (userId) => {
-  try {
-    let accessToken = localStorage.getItem('token');
-    const response = await fetch(`http://localhost:8000/get-user/${userId}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const data = await response.json();
-    if (response.ok) {
-      setUserDetails(data);  // Directly use 'data' as it contains the user info
-    } else {
-      console.error('Failed to fetch user details:', response.status, response.statusText);
+  const fetchUserDetails = async (userId) => {
+    try {
+      let accessToken = localStorage.getItem('token');
+      const response = await api.get(`/get-user/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+  
+      if (response.status === 200) {
+        setUserDetails(response.data);
+      } else {
+        console.error('Failed to fetch user details:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching user details:', error);
     }
-  } catch (error) {
-    console.error('Error fetching user details:', error);
-  }
-};
-
+  };
+  
 
   // Handle modal open and fetching details
   const handleShowDetails = (conversation) => {

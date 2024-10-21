@@ -1,11 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useModal } from 'react-modal-state';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+import { UserContext } from '../context/UserContext'; // Import UserContext
 import anna from '../assets/Anna_1.svg';
 
-const Header = ({ navlinks, auth, handleLogout }) => {
+const Header = ({ navlinks, handleLogout }) => {
+  const { isAuthenticated } = useContext(UserContext); // Access isAuthenticated from UserContext
   const { open: openLoginModal } = useModal('login'); // Use the modal hook for login
 
   useEffect(() => {
@@ -42,41 +44,39 @@ const Header = ({ navlinks, auth, handleLogout }) => {
                   </a>
                 </li>
               ))}
-            {!auth ? (
-              <>
-                <li className="nav-item">
-                  <button
-                    className="btn btn-primary fw-bold"
-                    onClick={openLoginModal} // Open the login modal using the hook
-                    style={{
-                      padding: '0.5rem 1rem',
-                      backgroundColor: '#007bff',
-                      border: 'none',
-                      color: '#fff',
-                      borderRadius: '6px',
-                      fontSize: '0.9rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '1px',
-                      transition: 'background-color 0.3s ease, transform 0.3s ease',
-                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                      display: 'inline-block',
-                      verticalAlign: 'middle',
-                      marginLeft: '20px',
-                      marginTop: '-8px',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = '#0056b3';
-                      e.target.style.transform = 'translateY(-2px)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = '#007bff';
-                      e.target.style.transform = 'translateY(0)';
-                    }}
-                  >
-                    Login
-                  </button>
-                </li>
-              </>
+            {!isAuthenticated ? ( // Use isAuthenticated to conditionally render login/logout
+              <li className="nav-item">
+                <button
+                  className="btn btn-primary fw-bold"
+                  onClick={openLoginModal} // Open the login modal using the hook
+                  style={{
+                    padding: '0.5rem 1rem',
+                    backgroundColor: '#007bff',
+                    border: 'none',
+                    color: '#fff',
+                    borderRadius: '6px',
+                    fontSize: '0.9rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    transition: 'background-color 0.3s ease, transform 0.3s ease',
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                    display: 'inline-block',
+                    verticalAlign: 'middle',
+                    marginLeft: '20px',
+                    marginTop: '-8px',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = '#0056b3';
+                    e.target.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = '#007bff';
+                    e.target.style.transform = 'translateY(0)';
+                  }}
+                >
+                  Login
+                </button>
+              </li>
             ) : (
               <li className='nav-item dropdown'>
                 <a

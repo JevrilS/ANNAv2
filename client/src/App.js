@@ -36,10 +36,19 @@ function App() {
   const [isRecommendationProvided, setIsRecommendationProvided] = useState({ riasec: '', strand: '' });
   const [basis, setBasis] = useState('');
 
+  // Logout function to clear tokens and redirect
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    setIsAuthenticated(false);
+    window.location.href = '/admin/login'; // Redirect to login page
+  };
+
   const refreshAccessToken = async () => {
     try {
+      const refreshToken = localStorage.getItem('refreshToken');
       const response = await api.post('/token/refresh/', {
-        refresh: localStorage.getItem('refreshToken'),
+        refresh: refreshToken,
       });
 
       if (response.status === 200) {
@@ -47,10 +56,12 @@ function App() {
         return response.data.access;
       } else {
         console.error('Refresh token invalid or expired:', response.data);
+        handleLogout();  // Log out if refresh token is invalid
         return null;
       }
     } catch (err) {
       console.error('Error refreshing access token:', err);
+      handleLogout();  // Log out on error
       return null;
     }
   };
@@ -68,7 +79,7 @@ function App() {
 
       const response = await api.get('/auth/is-verify/', {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -80,8 +91,6 @@ function App() {
           setIsAuthenticated(true);
         } else {
           setIsAuthenticated(false);
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
         }
       } else {
         setIsAuthenticated(false);
@@ -120,6 +129,7 @@ function App() {
     setIsAuthenticated,
     isSidebarActive,
     setIsSidebarActive,
+    handleLogout,  // Pass the handleLogout function
   };
 
   if (loading) {

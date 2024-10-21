@@ -10,13 +10,15 @@ import { FaHome, FaCommentDots, FaClipboardList } from 'react-icons/fa';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { Dropdown, DropdownButton } from 'react-bootstrap';
 import api from '../../utils/api';  // Import the API utility
+import { UserContext } from '../../context/UserContext';  // Add this import
+import { useContext } from 'react';  // Add this line
 
 
 // Register Chart.js components and plugins
 ChartJS.register(...registerables, ChartDataLabels);
 // Token refresh function
 // Token refresh function
-const refreshAccessToken = async (navigate) => {
+const refreshAccessToken = async (navigate, handleLogout) => {  // Pass handleLogout here
   try {
     const response = await api.post('/token/refresh/', {
       refresh: localStorage.getItem('refreshToken'),
@@ -27,15 +29,16 @@ const refreshAccessToken = async (navigate) => {
       return response.data.access;
     } else {
       console.error('Refresh token invalid or expired:', response.data);
-      navigate('/admin/login');
+      handleLogout();  // Use handleLogout instead of navigate
       return null;
     }
   } catch (err) {
     console.error('Error refreshing access token:', err);
-    navigate('/admin/login');
+    handleLogout();  // Use handleLogout for error case too
     return null;
   }
 };
+
 
 const chartOptionsWithAdjustedPadding = {
   responsive: true,
@@ -82,6 +85,7 @@ const chartOptionsWithAdjustedPadding = {
 
 
 const Dashboard = () => {
+  const { handleLogout } = useContext(UserContext);  // Destructure handleLogout from context
   const [dashboardData, setDashboardData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState({
@@ -115,39 +119,42 @@ const Dashboard = () => {
           Authorization: `Bearer ${accessToken}`,
         },
       });
-
-      // Handle token expiration (401 Unauthorized) and refresh if needed
+  
+      // Check for token expiration or unauthorized access
       if (response.status === 401) {
-        accessToken = await refreshAccessToken(navigate);
+        accessToken = await refreshAccessToken(navigate, handleLogout);  // Pass handleLogout for logout flow
+  
         if (accessToken) {
+          // Retry fetching the data with refreshed token
           const retryResponse = await api.get(`/api/dashboard/?${queryParams.toString()}`, {
             headers: {
               Authorization: `Bearer ${accessToken}`,
             },
           });
   
-          // Handle retry response
-          if (retryResponse.ok) {
-            const retryData = await retryResponse.json();
-            setDashboardData(retryData);  // Set the fetched dashboard data
+          // Handle successful retry response
+          if (retryResponse.status === 200) {
+            setDashboardData(retryResponse.data);  // Axios stores the response data in `data`
           } else {
+            console.error('Failed to refetch data after token refresh:', retryResponse.status);
             throw new Error('Failed to refetch data after token refresh');
           }
         } else {
+          console.error('Token refresh failed');
           throw new Error('Token refresh failed');
         }
-      } else if (response.ok) {
-        const data = await response.json();
-        setDashboardData(data);  // Set the fetched dashboard data
-        
-        // Now log the fetched data
-        console.log('Fetched data:', data);  // Log fetched data for debugging
-    } else {
+      } else if (response.status === 200) {
+        // Handle the successful initial response
+        setDashboardData(response.data);  // Axios stores the response data in `data`
+  
+        // Log the fetched data for debugging
+        console.log('Fetched data:', response.data);
+      } else {
         console.error('Failed to fetch dashboard data:', response.status, response.statusText);
         throw new Error('Failed to fetch dashboard data');
-    }
-    
-      // Set loading state to false after fetching
+      }
+  
+      // Set loading state to false after fetching data
       setIsLoading(false);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -160,9 +167,11 @@ const Dashboard = () => {
     fetchData();
   }, [filters]);  // Ensure the effect runs every time filters are updated
   
+  // Render loading state
   if (isLoading) {
     return <div>Loading...</div>;
   }
+  
 
   // Filter handling
   const handleFilterChange = (event) => {

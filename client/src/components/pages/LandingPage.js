@@ -19,6 +19,7 @@ window.$ = $;
 window.jQuery = $;
 
 const LandingPage = () => {
+  const [refresh, setRefresh] = useState(false);
   const [auth, setAuth] = useState(false); // Add state for authentication
   const { setShowbot } = useContext(ChatbotContext);
 
@@ -60,7 +61,63 @@ const LandingPage = () => {
     }
   }, []);
 
+  // Listen for login success event
+  useEffect(() => {
+    const handleLoginSuccess = () => {
+      setAuth(true); // Update auth state to true
+      setShowbot(true); // Show the chatbot after login
+    };
 
+    window.addEventListener('loginSuccess', handleLoginSuccess);
+
+    return () => {
+      window.removeEventListener('loginSuccess', handleLoginSuccess);
+    };
+  }, []);
+  
+  useEffect(() => {
+    // Add event listener for loginSuccess event
+    const handleLoginSuccess = () => {
+      // Trigger a re-render or refresh the data
+      setRefresh(prev => !prev);  // Toggle the refresh state to re-render the component
+    };
+
+    window.addEventListener('loginSuccess', handleLoginSuccess);
+
+    // Cleanup the event listener
+    return () => {
+      window.removeEventListener('loginSuccess', handleLoginSuccess);
+    };
+  }, []);
+
+  // Fetch or update the component based on refresh state
+  useEffect(() => {
+    // Fetch data or perform any action to update the page
+  }, [refresh]);
+const fetchUserInfo = async () => {
+  const token = localStorage.getItem('authToken');
+  if (token) {
+    try {
+      const response = await api.get('/api/user/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (response.status === 200) {
+        const { name, age, sex, strand, grade_level } = response.data;
+        setUser({
+          name,
+          age,
+          sex,
+          strand,
+          grade_level,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching user info:', error);
+    }
+  }
+};
 
   useEffect(() => {
     const fetchSchools = async () => {

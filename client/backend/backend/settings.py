@@ -106,7 +106,12 @@ CSRF_TRUSTED_ORIGINS = [
     "http://uic.localhost:8000", "http://127.0.0.1:3000", 
     "http://school1.localhost:3000", "http://uic.localhost:3000",  
     'https://react-frontend-807323421144.asia-northeast1.run.app',
+    "https://node-backend-807323421144.asia-northeast1.run.app",
+    "https://django-backend-807323421144.asia-northeast1.run.app"
 ]
+CSRF_COOKIE_SECURE = True  # Only send CSRF cookies over HTTPS
+SESSION_COOKIE_SECURE = True  # Only send session cookies over HTTPS
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Applications listed in SHARED_APPS will be synced to the public schema
 SHARED_APPS = (
@@ -164,6 +169,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+
 ]
 
 ROOT_URLCONF = 'backend.urls'
