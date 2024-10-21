@@ -1,5 +1,7 @@
 from django.views.generic import TemplateView
 from django.urls import path
+from rest_framework_simplejwt.views import TokenRefreshView
+from custom_auth import views
 from .views import (
     register,
     FeedbackView,
@@ -18,10 +20,11 @@ from .views import (
     agree_to_terms,
     get_dashboard_data,
     verify_email,
+    request_password_reset,  # Import the view for password reset request
+    reset_password,  # Import the view for password reset
     CustomTokenObtainPairView  # Import the custom token view
 )
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from custom_auth import views
+
 
 urlpatterns = [
     path('', TemplateView.as_view(template_name='custom_auth/index.html'), name='home'),
@@ -46,5 +49,7 @@ urlpatterns = [
     path('get-user/<int:user_id>/', views.get_user_by_id, name='get-user-by-id'),
     path('verify-email/<uidb64>/<token>/', verify_email, name='verify_email'),
 
-
+    # Add the password reset URLs
+    path('auth/request-password-reset/', request_password_reset, name='request_password_reset'),
+    path('reset-password/<uidb64>/<token>/', reset_password, name='reset_password'),
 ]

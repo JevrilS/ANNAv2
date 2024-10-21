@@ -11,43 +11,43 @@ const LoginModal = () => {
   const { isOpen, close } = useModalInstance(); // Handles the current modal (LoginModal)
   const { setIsAuthenticated } = useContext(UserContext);
   const { open: openRegisterModal } = useModal('register'); // Destructure the open function from useModal
-  
+  const { open: openForgotPasswordModal } = useModal('forgotPassword'); // Destructure ForgotPassword modal function
+
   const handleLogin = async (e) => {
     e.preventDefault();
-    
+
     const loginData = {
       email: e.target.loginEmail.value,
       password: e.target.loginPassword.value,
     };
-    
+
     try {
       const response = await api.post('https://django-backend-807323421144.asia-northeast1.run.app/auth/token/', loginData, {
         headers: {
           'Content-Type': 'application/json',
         },
       });
-  
+
       if (response.status === 200) {
         if (!response.data.is_active) {
           toast.warn('Please verify your account by clicking on the verification link sent to your email.');
           return; // Exit early if the account is not active
         }
-  
+
         // Set authenticated state and store tokens
         setIsAuthenticated(true);  // Update the context
         localStorage.setItem('authToken', response.data.access);
         localStorage.setItem('refreshToken', response.data.refresh);
         localStorage.setItem('isAuthenticated', 'true'); // Save auth status in localStorage
-  
+
         // Notify login success
         toast.success('Login successful!');
-  
+
         // Close the login modal
         close();
-  
+
         // Dispatch a custom event to refresh LandingPage and Chatbot
         window.dispatchEvent(new Event('loginSuccess')); // Trigger the custom event
-  
       } else {
         toast.error('Login failed. Please check your credentials.');
       }
@@ -62,12 +62,18 @@ const LoginModal = () => {
       }
     }
   };
-  
 
   const handleSignUp = () => {
     close(); // Close the LoginModal
     setTimeout(() => {
       openRegisterModal(); // Use the correct function to open RegisterModal
+    }, 300); // Delay for smooth transition
+  };
+
+  const handleForgotPassword = () => {
+    close(); // Close the LoginModal
+    setTimeout(() => {
+      openForgotPasswordModal(); // Use the correct function to open ForgotPasswordModal
     }, 300); // Delay for smooth transition
   };
 
@@ -107,7 +113,7 @@ const LoginModal = () => {
             />
           </div>
           <div className="d-flex justify-content-center w-100">
-            <a href="#changePasswordModal" className="forgot-password-link">
+            <a href="#forgotPasswordModal" className="forgot-password-link" onClick={handleForgotPassword}>
               Forgot Password?
             </a>
           </div>

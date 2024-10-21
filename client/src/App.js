@@ -22,6 +22,7 @@ import { ChatbotContext } from './context/ChatbotContext';
 import { UserContext } from './context/UserContext';
 import LoginModal from './components/pages/LoginModal';
 import RegisterModal from './components/pages/RegisterModal';
+import ForgotPasswordModal from './components/pages/ForgotPasswordModal';  // Import the ForgotPasswordModal
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -38,7 +39,7 @@ function App() {
 
   // Logout function to clear tokens and redirect
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem('authToken');  // Fix inconsistent token names
     localStorage.removeItem('refreshToken');
     setIsAuthenticated(false);
     window.location.href = '/admin/login'; // Redirect to login page
@@ -52,7 +53,7 @@ function App() {
       });
 
       if (response.status === 200) {
-        localStorage.setItem('token', response.data.access);
+        localStorage.setItem('authToken', response.data.access);  // Ensure consistent naming
         return response.data.access;
       } else {
         console.error('Refresh token invalid or expired:', response.data);
@@ -68,7 +69,7 @@ function App() {
 
   const verify = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');  // Fix token key
       const refreshToken = localStorage.getItem('refreshToken');
 
       if (!token) {
@@ -143,6 +144,7 @@ function App() {
           modals={[
             ['login', LoginModal],
             ['register', RegisterModal],
+            ['forgotPassword', ForgotPasswordModal],  // Register ForgotPassword modal here
           ]}
         >
           <Router>
@@ -151,6 +153,7 @@ function App() {
           <ToastContainer theme="light" transition={Flip} autoClose={2000} />
           <ModalRenderer Component={LoginModal} />
           <ModalRenderer Component={RegisterModal} />
+          <ModalRenderer Component={ForgotPasswordModal} />  {/* Add ForgotPasswordModal renderer */}
         </ModalProvider>
       </UserContext.Provider>
     </ChatbotContext.Provider>

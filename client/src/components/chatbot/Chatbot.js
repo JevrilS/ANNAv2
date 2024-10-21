@@ -147,19 +147,20 @@ const Chatbot = () => {
    }, []);
  
    useEffect(() => {
-      // Add event listener for loginSuccess event
-      const handleLoginSuccess = () => {
-        // Trigger a re-render or refresh the chatbot state
-        setRefresh(prev => !prev);  // Toggle the refresh state to re-render the component
+      // Listen for chatbot refresh event after login
+      const handleChatbotRefresh = () => {
+        // Re-fetch the user info and refresh the chatbot state
+        fetchUserInfo();  // This will trigger the chatbot to refresh with the user's data
       };
-  
-      window.addEventListener('loginSuccess', handleLoginSuccess);
-  
+    
+      window.addEventListener('chatbotRefresh', handleChatbotRefresh);
+    
       // Cleanup the event listener
       return () => {
-        window.removeEventListener('loginSuccess', handleLoginSuccess);
+        window.removeEventListener('chatbotRefresh', handleChatbotRefresh);
       };
     }, []);
+    
   
     useEffect(() => {
       // Re-fetch the necessary chatbot state or trigger RIASEC_START
@@ -571,7 +572,7 @@ const Chatbot = () => {
 
    const refreshAccessToken = async () => {
       try {
-          const refreshToken = localStorage.getItem('refreshToken');
+          const refreshToken = localStorage.getItem('refreshToken');  // Retrieve the refresh token
   
           if (!refreshToken) {
               console.error('No refresh token found.');
@@ -583,13 +584,13 @@ const Chatbot = () => {
               headers: {
                   'Content-Type': 'application/json',
               },
-              body: JSON.stringify({ refresh: refreshToken }),
+              body: JSON.stringify({ refresh: refreshToken }),  // Send the refresh token to get a new access token
           });
   
           const data = await response.json();
   
           if (response.status === 200) {
-              localStorage.setItem('token', data.access);  // Store new access token
+              localStorage.setItem('authToken', data.access);  // Store the new access token
               return data.access;
           } else {
               console.error('Error refreshing token:', data);
@@ -600,9 +601,11 @@ const Chatbot = () => {
           return null;
       }
   };
+  
   const savedConversation = async (user, riasecCode, riasecCourses, strandCourses) => {
    try {
-       let token = localStorage.getItem('token'); // Get JWT access token
+       // Try to get the correct JWT token from localStorage
+       let token = localStorage.getItem('authToken'); // Ensure this matches your stored token key
 
        if (!token) {
            console.error('No JWT access token found.');
@@ -636,6 +639,7 @@ const Chatbot = () => {
            body: JSON.stringify(body),  // Convert to JSON string
        });
 
+       // If the token is expired, refresh it and retry
        if (response.status === 401) {
            console.warn('Access token expired or invalid, attempting to refresh...');
            token = await refreshAccessToken();  // Refresh token if expired
@@ -672,6 +676,7 @@ const Chatbot = () => {
        console.error('Unexpected error saving conversation:', err.message);
    }
 };
+
 
 
   

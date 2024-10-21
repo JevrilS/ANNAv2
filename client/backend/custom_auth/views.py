@@ -44,6 +44,7 @@ from django.urls import reverse
 from django.template.loader import render_to_string
 from django.contrib.sites.shortcuts import get_current_site
 from django.core.mail import EmailMultiAlternatives  # Import EmailMultiAlternatives
+
 @login_required
 def check_terms_agreement(request):
     # Get the user's profile and check if they have agreed to terms
@@ -243,7 +244,7 @@ def register(request):
         token = default_token_generator.make_token(user)
         verification_link = reverse('verify_email', kwargs={'uidb64': uid, 'token': token})
 # Inside your register function, modify the activation URL generation
-        activation_url = f"http://{current_site.domain}:{request.get_port()}{verification_link}"
+        activation_url = f"https://{current_site.domain}{verification_link}"
 
         # Prepare the email content
         html_content = render_to_string('registration/activation_email.html', {
@@ -609,7 +610,10 @@ def verify_email(request, uidb64, token):
         user.save()
 
         # Success - Render the success template
-        return render(request, 'registration/email_success_template.html', {'message': 'Your account has been activated successfully!'})
+        return render(request, 'registration/email_success_template.html', {
+    'message': 'Your account has been activated successfully!',
+    'login_url': 'https://react-frontend-807323421144.asia-northeast1.run.app'
+})
     else:
         logger.warning("Activation link is invalid!")
         # Failure - Render the same template with an error message
@@ -620,3 +624,60 @@ from .serializers import CustomTokenObtainPairSerializer
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def reset_password(request, uidb64, token):
+    try:
+        # Decode the user ID from the base64 encoded string
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+        
+        if user is not None and default_token_generator.check_token(user, token):
+            # Get new password data
+            data = request.data
+            new_password = data.get('new_password')
+            confirm_password = data.get('confirm_password')
+            
+            if new_password != confirm_password:
+                return Response({'message': 'Passwords do not match'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Set new password
+            user.set_password(new_password)
+            user.save()
+            
+            return Response({'message': 'Password has been reset successfully!'}, status=status.HTTP_200_OK)
+        
+        else:
+            return Response({'message': 'Invalid token or user.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    except Exception as e:
+        return Response({'message': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def request_password_reset(request):
+    email = request.data.get('email')
+    if not email:
+        return Response({'error': 'Email is required'}, status=400)
+    
+    try:
+        user = User.objects.get(email=email)
+        uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        current_site = get_current_site(request)
+        
+        # Use reverse to generate the password reset confirm link dynamically
+        reset_link = f"https://{current_site.domain}{reverse('password_reset_confirm', kwargs={'uidb64': uidb64, 'token': token})}"
+        
+        # Send the reset email
+        send_mail(
+            subject='Password Reset Request',
+            message=f'Click the link to reset your password: {reset_link}',
+            from_email='your-email@example.com',
+            recipient_list=[user.email]
+        )
+        
+        return Response({'message': 'Password reset email sent.'}, status=200)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found.'}, status=404)
+    

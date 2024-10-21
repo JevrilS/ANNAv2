@@ -49,51 +49,30 @@ const LandingPage = () => {
     { text: 'Learn RIASEC', link: '/#learn-riasec' },
     { text: 'Feedback', link: '/#feedback' },
   ];
-  useEffect(() => {
-    checkAuthStatus(); // Check if the user is authenticated when the component mounts
-  }, []);
-  
 
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      setAuth(true);
-    }
+    checkAuthStatus();  // Call the function to check if the user is authenticated when the component mounts
   }, []);
 
-  // Listen for login success event
   useEffect(() => {
     const handleLoginSuccess = () => {
-      setAuth(true); // Update auth state to true
-      setShowbot(true); // Show the chatbot after login
+      setAuth(true); // Set authentication state to true
+      setShowbot(true); // Show the chatbot
+      fetchUserInfo(); // Fetch user info after successful login
+      
+      // Dispatch a custom event to refresh the chatbot
+      window.dispatchEvent(new Event('chatbotRefresh'));
     };
-
+  
     window.addEventListener('loginSuccess', handleLoginSuccess);
-
+  
     return () => {
       window.removeEventListener('loginSuccess', handleLoginSuccess);
     };
   }, []);
   
-  useEffect(() => {
-    // Add event listener for loginSuccess event
-    const handleLoginSuccess = () => {
-      // Trigger a re-render or refresh the data
-      setRefresh(prev => !prev);  // Toggle the refresh state to re-render the component
-    };
+  
 
-    window.addEventListener('loginSuccess', handleLoginSuccess);
-
-    // Cleanup the event listener
-    return () => {
-      window.removeEventListener('loginSuccess', handleLoginSuccess);
-    };
-  }, []);
-
-  // Fetch or update the component based on refresh state
-  useEffect(() => {
-    // Fetch data or perform any action to update the page
-  }, [refresh]);
 const fetchUserInfo = async () => {
   const token = localStorage.getItem('authToken');
   if (token) {
@@ -119,6 +98,27 @@ const fetchUserInfo = async () => {
   }
 };
 
+const refreshAccessToken = async () => {
+  try {
+    const refreshToken = localStorage.getItem('refreshToken');
+    const response = await api.post('/auth/token/refresh/', {
+      refresh: refreshToken,
+    });
+
+    if (response.status === 200) {
+      localStorage.setItem('authToken', response.data.access);
+      return response.data.access;
+    } else {
+      // Handle refresh token expiration
+      handleLogout();
+      return null;
+    }
+  } catch (err) {
+    console.error('Error refreshing access token:', err);
+    handleLogout();
+    return null;
+  }
+};
   useEffect(() => {
     const fetchSchools = async () => {
       try {
@@ -222,20 +222,21 @@ const checkAuthStatus = async () => {
         },
       });
 
-      // If the token is valid, the user is logged in
       if (response.status === 200) {
-        setAuth(true);
+        setAuth(true);  // Set authentication state to true
+        fetchUserInfo(); // Fetch user info if authenticated
       } else {
-        handleLogout();  // Log out if token is invalid
+        handleLogout();  // Log out if the token is invalid
       }
     } catch (err) {
       console.error('Error checking auth status:', err);
-      handleLogout();  // Log out and clear tokens on error
+      handleLogout();  // Log out on error
     }
   } else {
     setAuth(false); // No token means not logged in
   }
 };
+
 
   const getCookie = (name) => {
     let cookieValue = null;
