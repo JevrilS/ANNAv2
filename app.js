@@ -26,6 +26,8 @@ const connectDB = async () => {
   }
 };
 connectDB();
+console.log('MONGO_URI:', process.env.MONGO_URI);
+console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
 
 // MongoDB Events
 mongoose.connection.on('disconnected', () => {

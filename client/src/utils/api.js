@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const baseURL = `https://django-backend-807323421144.asia-northeast1.run.app`;
+const baseURL = `https://django-backend-604521917673.asia-northeast1.run.app`;
 
 const api = axios.create({
     baseURL: baseURL,

@@ -81,7 +81,7 @@ useEffect(() => {
       }
   
       // Fetch courses with RIASEC areas
-      const courseResponse = await api.get('https://node-backend-807323421144.asia-northeast1.run.app/api/courses');
+      const courseResponse = await api.get('https://node-backend-604521917673.asia-northeast1.run.app/api/courses');
       setCourses(courseResponse.data); // Save the fetched courses
     } catch (error) {
       console.error('Failed to fetch conversations or courses:', error);
@@ -144,6 +144,7 @@ useEffect(() => {
   };
   
 
+  
   // Handle modal open and fetching details
   const handleShowDetails = (conversation) => {
     if (!conversation.user_id) {
@@ -165,7 +166,7 @@ useEffect(() => {
   // Handle pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentConversations = conversations; // Display all conversations
+  const currentConversations = conversations.slice(indexOfFirstItem, indexOfLastItem); // Display conversations for the current page
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
@@ -204,9 +205,10 @@ useEffect(() => {
       "Strand Course Recommendations": selectedConversation?.strand_course_recommendation?.join(', ') || 'N/A',
     },
   ];
+  
   const csvAllData = conversations.map((conversation) => ({
     Name: conversation.name || 'N/A',
-    Age: conversation.age || 'N/A',
+    Age: conversation.age || 'N/A',  // Use the age directly from API response
     Sex: conversation.sex || 'N/A',
     Strand: conversation.strand || 'N/A',
     "Realistic Score": conversation.realistic_score || 'N/A',
@@ -217,7 +219,8 @@ useEffect(() => {
     "Conventional Score": conversation.conventional_score || 'N/A',
     "RIASEC Course Recommendations": conversation.riasec_course_recommendation?.join(', ') || 'N/A',
     "Strand Course Recommendations": conversation.strand_course_recommendation?.join(', ') || 'N/A',
-  }));
+}));
+
   
   return (
     <Container fluid>
@@ -301,7 +304,8 @@ useEffect(() => {
                   <tr key={index}>
                     <td className="text-center">{formatDate(conversation.created_at)}</td>
                     <td className="text-center">{conversation.name || 'N/A'}</td>
-                    <td className="text-center">{conversation.age || 'N/A'}</td>
+                    <td className="text-center">{conversation.age != null ? conversation.age : 'N/A'}</td>
+
                     <td className="text-center">{conversation.sex || 'N/A'}</td>
                     <td className="text-center">{abbreviateStrand(conversation.strand) || 'N/A'}</td>
                     <td className="text-center">{formatRiasecCode(conversation.riasec_code)}</td>
@@ -387,7 +391,7 @@ useEffect(() => {
               { label: 'Grade Level', value: userDetails.grade_level },
               { label: 'Sex', value: userDetails.sex },
               { label: 'Strand', value: userDetails.strand },
-              { label: 'Age', value: selectedConversation.age },
+              { label: 'Age', value: selectedConversation.age || 'N/A' },
             ].map((item, idx) => (
               <Row className="mb-2 justify-content-center" key={idx}>
                 <Col md={4} className="text-right">

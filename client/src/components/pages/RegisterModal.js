@@ -1,15 +1,13 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { useModalInstance } from 'react-modal-state';
 import { Modal } from 'react-bootstrap';
-import api from '../../utils/api'; // Ensure this matches your structure
-import { UserContext } from '../../context/UserContext';
+import api from '../../utils/api';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import '../../styles/RegisterModal.css'; // Import the CSS file for styling
+import '../../styles/RegisterModal.css';
 
 const RegisterModal = () => {
   const { isOpen, close } = useModalInstance();
-  const { setIsAuthenticated } = useContext(UserContext);
   const { open: openLoginModal } = useModalInstance();
   const [formData, setFormData] = useState({
     id_no: '',
@@ -20,12 +18,18 @@ const RegisterModal = () => {
     school_id: '',
     mobile_no: '',
     sex: '',
-    age: '',
+    birthday: '',
     strand: '',
     grade_level: '',
+    section_id: ''
   });
   const [schools, setSchools] = useState([]);
-  const [showVerificationMessage, setShowVerificationMessage] = useState(false); // State for verification message
+  const [sections, setSections] = useState([]);
+  const [showVerificationMessage, setShowVerificationMessage] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [mobileError, setMobileError] = useState('');
+  const [birthdayError, setBirthdayError] = useState('');
 
   useEffect(() => {
     const fetchSchools = async () => {
@@ -33,20 +37,138 @@ const RegisterModal = () => {
         const response = await api.get('/schools/');
         setSchools(response.data);
       } catch (error) {
-        console.error('Error fetching schools:', error);
         toast.error('Failed to fetch schools');
       }
     };
-
     fetchSchools();
   }, []);
+
+  useEffect(() => {
+    if (formData.school_id) {
+      const fetchSections = async () => {
+        try {
+          const response = await api.get(`/sections/?school_id=${formData.school_id}`);
+          setSections(response.data);
+        } catch (error) {
+          toast.error('Failed to fetch sections');
+        }
+      };
+      fetchSections();
+    } else {
+      setSections([]);
+    }
+  }, [formData.school_id]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.id]: e.target.value });
   };
 
+  // Password validation
+  const isValidPassword = (password) => {
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+    return passwordRegex.test(password);
+  };
+
+  // Mobile number validation
+  const isValidMobile = (mobile) => {
+    const mobileRegex = /^[0-9]{10,15}$/;
+    return mobileRegex.test(mobile);
+  };
+  const handleBirthdayChange = (e) => {
+    const birthday = e.target.value;
+    setFormData({ ...formData, birthday });
+  
+    // Validate birthday as the user changes the input
+    if (!isValidBirthday(birthday)) {
+      const birthDate = new Date(birthday);
+      if (birthDate > new Date()) {
+        setBirthdayError('Birthday cannot be in the future.');
+      } else {
+        setBirthdayError('Age must be between 10 and 100.');
+      }
+    } else {
+      setBirthdayError('');
+    }
+  };
+  
+  // Birthday validation
+  const isValidBirthday = (birthday) => {
+    const today = new Date();
+    const birthDate = new Date(birthday);
+    const age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+  
+    // Check if the birthday is in the future
+    if (birthDate > today) {
+      return false; // Invalid if the birthday is in the future
+    }
+  
+    // Check if age is within the valid range
+    return age >= 10 && age <= 100;
+  };
+
+  // Real-time validation for password
+  const handlePasswordBlur = () => {
+    if (!isValidPassword(formData.password)) {
+      setPasswordError('Password must include uppercase, lowercase, number, and special character.');
+    } else {
+      setPasswordError('');
+    }
+  };
+
+  // Real-time validation for confirm password
+  const handleConfirmPasswordBlur = () => {
+    if (formData.password !== formData.confirm_password) {
+      setConfirmPasswordError('Passwords do not match.');
+    } else {
+      setConfirmPasswordError('');
+    }
+  };
+
+  // Real-time validation for mobile
+  const handleMobileBlur = () => {
+    if (!isValidMobile(formData.mobile_no)) {
+      setMobileError('Please enter a valid mobile number (10-15 digits).');
+    } else {
+      setMobileError('');
+    }
+  };
+
   const handleRegister = async (e) => {
     e.preventDefault();
+
+    // Password validation feedback
+    if (!isValidPassword(formData.password)) {
+      setPasswordError('Password must include uppercase, lowercase, number, and special character.');
+      return;
+    }
+
+    // Check if passwords match
+    if (formData.password !== formData.confirm_password) {
+      setConfirmPasswordError('Passwords do not match');
+      return;
+    }
+
+    if (!isValidBirthday(formData.birthday)) {
+      const birthDate = new Date(formData.birthday);
+      if (birthDate > new Date()) {
+        toast.error('Birthday cannot be in the future.');
+      } else {
+        toast.error('Please enter a valid birthday. Age must be between 10 and 100.');
+      }
+      return;
+    }
+    
+
+
+    // Check mobile number
+    if (!isValidMobile(formData.mobile_no)) {
+      setMobileError('Please enter a valid mobile number (10-15 digits).');
+      return;
+    }
 
     const registerData = {
       id_no: formData.id_no,
@@ -57,9 +179,10 @@ const RegisterModal = () => {
       school_id: formData.school_id,
       mobile_no: formData.mobile_no,
       sex: formData.sex,
-      age: formData.age,
+      birthday: formData.birthday,
       strand: formData.strand.toUpperCase(),
       grade_level: formData.grade_level,
+      section_id: formData.section_id
     };
 
     try {
@@ -70,12 +193,27 @@ const RegisterModal = () => {
       });
 
       if (response.status === 201) {
-        setShowVerificationMessage(true); // Show the verification message
+        setShowVerificationMessage(true);
         toast.success('Registration successful! A verification email has been sent.');
         setTimeout(() => {
+          // Reset form after successful registration
+          setFormData({
+            id_no: '',
+            full_name: '',
+            email: '',
+            password: '',
+            confirm_password: '',
+            school_id: '',
+            mobile_no: '',
+            sex: '',
+            birthday: '',
+            strand: '',
+            grade_level: '',
+            section_id: ''
+          });
           close();
-          openLoginModal(); // Optional: Open login modal after successful registration
-        }, 3000); // Close the modal after 3 seconds
+          openLoginModal();
+        }, 3000);
       } else {
         toast.error(response.data.message || 'Registration failed. Please try again.');
       }
@@ -90,28 +228,16 @@ const RegisterModal = () => {
         <Modal.Title>Register</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        {/* Verification Message Box */}
         {showVerificationMessage && (
           <div className="alert alert-success d-flex align-items-center mb-3" role="alert">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              fill="currentColor"
-              className="bi bi-check-circle-fill me-2"
-              viewBox="0 0 16 16"
-              style={{ animation: 'check-animation 0.5s ease' }}
-            >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" className="bi bi-check-circle-fill me-2" viewBox="0 0 16 16" style={{ animation: 'check-animation 0.5s ease' }}>
               <path d="M16 8a8 8 0 1 1-16 0 8 8 0 0 1 16 0zM4.5 8.5L7 11l4.5-4.5-1-1L7 9l-2.5-2.5-1 1z" />
             </svg>
             <div>Verification Email has been sent!</div>
           </div>
         )}
-        <form onSubmit={handleRegister} className="register-form">
-          <div className="mb-3">
-            <h4 className="text-center">Register</h4>
-          </div>
 
+        <form onSubmit={handleRegister} className="register-form">
           {/* ID No */}
           <div className="input-group mb-3">
             <span className="input-group-text">
@@ -171,9 +297,11 @@ const RegisterModal = () => {
               id="password"
               placeholder="Password"
               value={formData.password}
+              onBlur={handlePasswordBlur}
               onChange={handleChange}
               required
             />
+            {passwordError && <small className="text-danger">{passwordError}</small>}
           </div>
 
           {/* Confirm Password */}
@@ -187,32 +315,11 @@ const RegisterModal = () => {
               id="confirm_password"
               placeholder="Confirm Password"
               value={formData.confirm_password}
+              onBlur={handleConfirmPasswordBlur}
               onChange={handleChange}
               required
             />
-          </div>
-
-          {/* Select School */}
-          <div className="input-group mb-3">
-            <span className="input-group-text">
-              <i className="fas fa-school"></i>
-            </span>
-            <select
-              className="form-control"
-              id="school_id"
-              value={formData.school_id}
-              onChange={handleChange}
-              required
-            >
-              <option value="" hidden>
-                Select School
-              </option>
-              {schools.map((school) => (
-                <option key={school.id} value={school.id}>
-                  {school.school_des}
-                </option>
-              ))}
-            </select>
+            {confirmPasswordError && <small className="text-danger">{confirmPasswordError}</small>}
           </div>
 
           {/* Mobile No */}
@@ -226,10 +333,13 @@ const RegisterModal = () => {
               id="mobile_no"
               placeholder="Mobile No."
               value={formData.mobile_no}
+              onBlur={handleMobileBlur}
               onChange={handleChange}
               required
             />
+            {mobileError && <small className="text-danger">{mobileError}</small>}
           </div>
+
 
           {/* Sex and Age (side by side) */}
           <div className="row">
@@ -253,20 +363,72 @@ const RegisterModal = () => {
             </div>
 
             <div className="col-6 mb-3 input-group">
+            <span className="input-group-text">
+              <i className="fas fa-birthday-cake"></i>
+            </span>
+            <input
+              type="date"
+              className="form-control"
+              id="birthday"
+              placeholder="Birthday"
+              value={formData.birthday}
+              onChange={handleBirthdayChange} // Updated to use the new function
+              required
+            />
+            {birthdayError && <small className="text-danger">{birthdayError}</small>}
+          </div>
+          </div>
+
+                        {/* Select School */}
+            <div className="input-group mb-3">
               <span className="input-group-text">
-                <i className="fas fa-birthday-cake"></i>
+                <i className="fas fa-school"></i>
               </span>
-              <input
-                type="number"
+              <select
                 className="form-control"
-                id="age"
-                placeholder="Age"
-                value={formData.age}
+                id="school_id"
+                value={formData.school_id}
                 onChange={handleChange}
                 required
-              />
+              >
+                <option value="" hidden>
+                  Select School
+                </option>
+                {schools.map((school) => (
+                  <option key={school.id} value={school.id}>
+                    {school.school_des}
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
+            {/* Select Section */}
+            <div className="input-group mb-3">
+              <span className="input-group-text">
+                <i className="fas fa-users"></i>
+              </span>
+              <select
+                className="form-control"
+                id="section_id"
+                value={formData.section_id}
+                onChange={handleChange}
+                required
+                disabled={!formData.school_id} // Disable if no school is selected
+              >
+                <option value="" hidden>
+                  Select Section
+                </option>
+                {sections.length > 0 ? (
+                  sections.map((section) => (
+                    <option key={section.id} value={section.id}>
+                      {section.name}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>No sections available</option>
+                )}
+              </select>
+            </div>
+
 
           {/* Strand */}
           <div className="input-group mb-3">

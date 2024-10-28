@@ -44,6 +44,9 @@ from django.urls import reverse
 from django.template.loader import render_to_string
 from django.contrib.sites.shortcuts import get_current_site
 from django.core.mail import EmailMultiAlternatives  # Import EmailMultiAlternatives
+from .serializers import SectionSerializer
+from .models import Section
+from .models import Feedback  # Import the Feedback model
 
 @login_required
 def check_terms_agreement(request):
@@ -72,8 +75,7 @@ def refresh_token(request):
 
         return Response({'access': str(new_access_token)}, status=status.HTTP_200_OK)
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
-@csrf_exempt
+        return Response({'error': str(e)}, status=status.HTTP_401_UNAUTHORIZED)@csrf_exempt
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def save_conversation(request):
@@ -82,7 +84,6 @@ def save_conversation(request):
 
         # Extract conversation details from the request data
         name = data.get('name')
-        age = data.get('age')
         sex = data.get('sex')
         strand = data.get('strand', '').upper()  # Convert strand to uppercase
         riasec_code = data.get('riasec_code', [])
@@ -99,7 +100,6 @@ def save_conversation(request):
         conversation = Conversation.objects.create(
             user=request.user,  # Associate with the authenticated user
             name=name,
-            age=age,
             sex=sex,
             strand=strand,  # Save the uppercased strand
             riasec_code=json.dumps(riasec_code),  # Store RIASEC code as JSON
@@ -120,6 +120,7 @@ def save_conversation(request):
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -185,7 +186,6 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 import json
-
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
@@ -197,14 +197,15 @@ def register(request):
         password = data.get('password')
         confirm_password = data.get('confirm_password')
         school_id = data.get('school_id')
+        section_id = data.get('section_id')  # Fetch section_id from the request
         mobile_no = data.get('mobile_no')
         sex = data.get('sex')
         strand = data.get('strand')
         grade_level = data.get('grade_level')
-        age = data.get('age')
+        birthday = data.get('birthday')  # Fetch birthday from the request
 
         # Validate input data
-        if not all([id_no, full_name, email, password, confirm_password, school_id, mobile_no, sex, strand, grade_level, age]):
+        if not all([id_no, full_name, email, password, confirm_password, school_id, mobile_no, sex, strand, grade_level, birthday]):
             return Response({'message': 'All fields are required'}, status=status.HTTP_400_BAD_REQUEST)
 
         if password != confirm_password:
@@ -223,17 +224,27 @@ def register(request):
         except School.DoesNotExist:
             return Response({'message': 'School not found'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Fetch the section object if provided
+        section = None
+        if section_id:
+            try:
+                section = Section.objects.get(id=section_id)
+            except Section.DoesNotExist:
+                return Response({'message': 'Section not found'}, status=status.HTTP_404_NOT_FOUND)
+
         # Create a new user but don't activate yet
         user = User.objects.create_user(
             id_no=id_no,
             full_name=full_name,
             email=email,
             school=school,
+            section=section,  # Assign the section to the user if available
             password=password,
             mobile_no=mobile_no,
             sex=sex,
             strand=strand,
             grade_level=grade_level,
+            birthday=birthday,  # Assign the birthday to the user
             is_active=False  # Set user as inactive until verified
         )
 
@@ -243,7 +254,7 @@ def register(request):
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
         verification_link = reverse('verify_email', kwargs={'uidb64': uid, 'token': token})
-# Inside your register function, modify the activation URL generation
+        # Inside your register function, modify the activation URL generation
         activation_url = f"https://{current_site.domain}{verification_link}"
 
         # Prepare the email content
@@ -268,6 +279,7 @@ def register(request):
 
     except Exception as e:
         return Response({'message': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -391,12 +403,26 @@ def token_is_valid(token):
     return token == 'valid-token'
 
 class FeedbackView(APIView):
+    permission_classes = [IsAuthenticated]  # Ensure only authenticated users can submit feedback
 
-    @redirect_if_not_authenticated
     def post(self, request):
-        feedbackEmail = request.data.get('email')
-        feedback = request.data.get('feedback')
-        return Response({"message": "Feedback received successfully!", "feedback": feedback}, status=status.HTTP_200_OK)
+        try:
+            # Get the email from the authenticated user
+            feedback_email = request.user.email
+            feedback_text = request.data.get('feedback')
+
+            # Check if feedback is provided
+            if not feedback_text:
+                return Response({'error': 'Feedback cannot be empty'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Save the feedback
+            feedback = Feedback.objects.create(email=feedback_email, feedback=feedback_text)
+            feedback.save()
+
+            return Response({"message": "Feedback received successfully!"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 from django.conf import settings
 from django.db import connection
@@ -612,7 +638,7 @@ def verify_email(request, uidb64, token):
         # Success - Render the success template
         return render(request, 'registration/email_success_template.html', {
     'message': 'Your account has been activated successfully!',
-    'login_url': 'https://react-frontend-807323421144.asia-northeast1.run.app'
+    'login_url': 'https://react-frontend-604521917673.asia-northeast1.run.app'
 })
     else:
         logger.warning("Activation link is invalid!")
@@ -624,7 +650,7 @@ from .serializers import CustomTokenObtainPairSerializer
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
-@api_view(['POST'])
+@api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def reset_password(request, uidb64, token):
     try:
@@ -633,25 +659,27 @@ def reset_password(request, uidb64, token):
         user = User.objects.get(pk=uid)
         
         if user is not None and default_token_generator.check_token(user, token):
-            # Get new password data
-            data = request.data
-            new_password = data.get('new_password')
-            confirm_password = data.get('confirm_password')
+            if request.method == 'POST':
+                # Get new password data
+                data = request.data
+                new_password = data.get('new_password')
+                confirm_password = data.get('confirm_password')
+                
+                if new_password != confirm_password:
+                    return render(request, 'custom_auth/password_reset_form.html', {'message': 'Passwords do not match'})
+                
+                # Set new password
+                user.set_password(new_password)
+                user.save()
+                
+                return render(request, 'custom_auth/password_reset_form.html', {'message': 'Password has been reset successfully!'})
             
-            if new_password != confirm_password:
-                return Response({'message': 'Passwords do not match'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            # Set new password
-            user.set_password(new_password)
-            user.save()
-            
-            return Response({'message': 'Password has been reset successfully!'}, status=status.HTTP_200_OK)
-        
+            return render(request, 'custom_auth/password_reset_form.html')  # Render the form on GET request
         else:
-            return Response({'message': 'Invalid token or user.'}, status=status.HTTP_400_BAD_REQUEST)
+            return render(request, 'custom_auth/password_reset_form.html', {'message': 'Invalid token or user.'})
     
     except Exception as e:
-        return Response({'message': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return render(request, 'custom_auth/password_reset_form.html', {'message': f'An error occurred: {str(e)}'})
     
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -680,4 +708,31 @@ def request_password_reset(request):
         return Response({'message': 'Password reset email sent.'}, status=200)
     except User.DoesNotExist:
         return Response({'error': 'User not found.'}, status=404)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_sections_by_school(request):
+    """
+    API to fetch sections based on the selected school.
+    It expects a 'school_id' query parameter.
+    """
+    school_id = request.GET.get('school_id')
     
+    if not school_id:
+        return Response({'error': 'school_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        sections = Section.objects.filter(school_id=school_id)
+        serializer = SectionSerializer(sections, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])  # or AllowAny if this should be public
+def get_feedbacks(request):
+    try:
+        feedbacks = Feedback.objects.all()
+        feedback_list = [{'email': f.email, 'feedback': f.feedback} for f in feedbacks]
+        return Response({'feedbacks': feedback_list}, status=200)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)

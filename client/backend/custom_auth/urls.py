@@ -20,16 +20,16 @@ from .views import (
     agree_to_terms,
     get_dashboard_data,
     verify_email,
-    request_password_reset,  # Import the view for password reset request
-    reset_password,  # Import the view for password reset
-    CustomTokenObtainPairView  # Import the custom token view
+    request_password_reset,
+    reset_password,
+    CustomTokenObtainPairView,
+    get_sections_by_school,
 )
-
 
 urlpatterns = [
     path('', TemplateView.as_view(template_name='custom_auth/index.html'), name='home'),
     path('register/', register, name='register'),
-    path('feedback/', FeedbackView.as_view(), name='feedback'),
+    path('feedback/', FeedbackView.as_view(), name='submit_feedback'),
     path('is-verify/', is_verify, name='is_verify'),
     path('login/', login_view, name='login'),
     path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
@@ -40,16 +40,16 @@ urlpatterns = [
     path('check-schema/', check_schema_view, name='check_schema'),
     path('auth/guidance-login/', guidance_login_view, name='guidance-login'),
     path('save-conversation/', views.save_conversation, name='save_conversation'),
-    path('get-conversations/', get_conversations, name='get-conversations'),  # New URL for fetching conversations
-    path('courses-distinct-strand/', get_distinct_strands, name='courses-distinct-strand'),  # New URL for fetching distinct strands
-    path('check_login_status/', check_login_status, name='check_login_status'),  # Add check_login_status URL
+    path('get-conversations/', get_conversations, name='get-conversations'),
+    path('courses-distinct-strand/', get_distinct_strands, name='courses-distinct-strand'),
+    path('check_login_status/', check_login_status, name='check_login_status'),
     path('api/check_terms_agreement/', check_terms_agreement, name='check_terms_agreement'),
     path('api/agree_to_terms/', agree_to_terms, name='agree_to_terms'),
     path('api/dashboard/', get_dashboard_data, name='get_dashboard_data'),
     path('get-user/<int:user_id>/', views.get_user_by_id, name='get-user-by-id'),
     path('verify-email/<uidb64>/<token>/', verify_email, name='verify_email'),
-
-    # Add the password reset URLs
+    path('sections/', get_sections_by_school, name='get_sections_by_school'),
+    path('api/feedbacks', views.get_feedbacks, name='get_feedbacks'),
     path('auth/request-password-reset/', request_password_reset, name='request_password_reset'),
     path('reset-password/<uidb64>/<token>/', reset_password, name='reset_password'),
 ]

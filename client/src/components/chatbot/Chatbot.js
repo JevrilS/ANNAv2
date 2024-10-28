@@ -52,7 +52,7 @@ const Chatbot = () => {
  
    const messagesRef = useRef(null);
    const [courseOptionsTimer, setCourseOptionsTimer] = useState('');
-   const [user, setUser] = useState({ name: '', age: '', sex: '', strand: '', tvl_substrand: '' });
+   const [user, setUser] = useState({ name: '', age: '', sex: '', strand:'' });
    const [riasec, setRiasec] = useState({ realistic: 0, investigative: 0, artistic: 0, social: 0, enterprising: 0, conventional: 0 });
    const [riasecCode, setRiasecCode] = useState([]);
    const [fallbackCount, setFallbackCount] = useState({});
@@ -77,7 +77,7 @@ const Chatbot = () => {
         }
     
         const checkLoginStatus = async (token) => {
-          const response = await fetch('https://django-backend-807323421144.asia-northeast1.run.app/api/check_login_status/', {
+          const response = await fetch('https://django-backend-604521917673.asia-northeast1.run.app/api/check_login_status/', {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
@@ -90,7 +90,7 @@ const Chatbot = () => {
         let response = await checkLoginStatus(accessToken);
     
         if (response.status === 401 && refreshToken) {
-          const refreshResponse = await fetch('https://django-backend-807323421144.asia-northeast1.run.app/api/token/refresh/', {
+          const refreshResponse = await fetch('https://django-backend-604521917673.asia-northeast1.run.app/api/token/refresh/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refresh: refreshToken }),
@@ -213,7 +213,7 @@ const Chatbot = () => {
 
       try {
          const body = { text, userId: cookies.get('userId'), parameters };
-         const response = await fetch('https://node-backend-807323421144.asia-northeast1.run.app/api/df_text_query/', {
+         const response = await fetch('https://node-backend-604521917673.asia-northeast1.run.app/api/df_text_query/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
@@ -348,7 +348,7 @@ const Chatbot = () => {
   
           console.log('Sending event to Dialogflow:', body); // Log the request body being sent to Dialogflow
   
-          const response = await fetch('https://node-backend-807323421144.asia-northeast1.run.app/api/df_event_query/', {
+          const response = await fetch('https://node-backend-604521917673.asia-northeast1.run.app/api/df_event_query/', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(body),
@@ -489,7 +489,7 @@ const Chatbot = () => {
          const timerId = setInterval(async () => {
             try {
                const body = { event: 'COURSE_OPTIONS_YES', userId: cookies.get('userId') };
-               await fetch('https://node-backend-807323421144.asia-northeast1.run.app/api/df_event_query', {
+               await fetch('https://node-backend-604521917673.asia-northeast1.run.app/api/df_event_query', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(body),
@@ -579,7 +579,7 @@ const Chatbot = () => {
               return null;
           }
   
-          const response = await fetch('https://django-backend-807323421144.asia-northeast1.run.app/api/token/refresh/', {
+          const response = await fetch('https://django-backend-604521917673.asia-northeast1.run.app/api/token/refresh/', {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',
@@ -601,10 +601,8 @@ const Chatbot = () => {
           return null;
       }
   };
-  
   const savedConversation = async (user, riasecCode, riasecCourses, strandCourses) => {
    try {
-       // Try to get the correct JWT token from localStorage
        let token = localStorage.getItem('authToken'); // Ensure this matches your stored token key
 
        if (!token) {
@@ -612,10 +610,9 @@ const Chatbot = () => {
            return;
        }
 
-       // Prepare body data including individual RIASEC scores
+       // Prepare body data excluding the age field
        const body = {
            name: titleCase(user.name),  // Title case the name
-           age: user.age,
            sex: user.sex,
            strand: user.strand,
            riasec_code: riasecCode,  // Array of RIASEC codes
@@ -630,7 +627,7 @@ const Chatbot = () => {
        };
 
        // Send conversation data to the backend
-       const response = await fetch('https://django-backend-807323421144.asia-northeast1.run.app/api/save-conversation/', {
+       const response = await fetch('https://django-backend-604521917673.asia-northeast1.run.app/api/save-conversation/', {
            method: 'POST',
            headers: {
                'Content-Type': 'application/json',
@@ -639,7 +636,6 @@ const Chatbot = () => {
            body: JSON.stringify(body),  // Convert to JSON string
        });
 
-       // If the token is expired, refresh it and retry
        if (response.status === 401) {
            console.warn('Access token expired or invalid, attempting to refresh...');
            token = await refreshAccessToken();  // Refresh token if expired
@@ -650,7 +646,7 @@ const Chatbot = () => {
            }
 
            // Retry saving the conversation with the refreshed token
-           const retryResponse = await fetch('https://django-backend-807323421144.asia-northeast1.run.app/api/save-conversation/', {
+           const retryResponse = await fetch('https://django-backend-604521917673.asia-northeast1.run.app/api/save-conversation/', {
                method: 'POST',
                headers: {
                    'Content-Type': 'application/json',
@@ -678,8 +674,6 @@ const Chatbot = () => {
 };
 
 
-
-  
    const renderCards = cards => {
       return cards.map((card, i) => <Card key={i} payload={card.structValue} />);
    };
@@ -863,7 +857,7 @@ const Chatbot = () => {
     
         const checkLoginStatus = async (token) => {
           // Function to check login status with the current token
-          const response = await fetch('https://django-backend-807323421144.asia-northeast1.run.app/api/check_login_status/', {
+          const response = await fetch('https://django-backend-604521917673.asia-northeast1.run.app/api/check_login_status/', {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
@@ -877,7 +871,7 @@ const Chatbot = () => {
     
         // If access token is invalid or expired, try refreshing the token
         if (response.status === 401 && refreshToken) {
-          const refreshResponse = await fetch('https://django-backend-807323421144.asia-northeast1.run.app/api/token/refresh/', {
+          const refreshResponse = await fetch('https://django-backend-604521917673.asia-northeast1.run.app/api/token/refresh/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refresh: refreshToken }), // Send the refresh token to get a new access token
@@ -1003,101 +997,91 @@ const Chatbot = () => {
             </div>
          )}
 
-         {/* terms & conditions modal */}
-         <Modal title='Terms and Conditions' target='modal-terms-conditions' size='modal-lg'>
-            <div className='p-2'>
-               <p>In using Anna, you agree to these terms and conditions:</p>
-               <ol className='m-0' type='A'>
-                  <li>All responses and correspondences with Anna will be recorded.</li>
-                  <li>
-                     Information such as name (required), age (required), sex (required), senior high school strand (required), and related
-                     correspondence will be for the exclusive use of this study to continuously improve Anna.
-                  </li>
-                  <li>The data collected will be used for as long as it is needed for further analysis or investigation.</li>
-                  <li>You are free to exit the conversation with Anna if you feel the need to do so.</li>
-               </ol>
-            </div>
+     {/* terms & conditions modal */}
+<Modal title='Terms and Conditions' target='modal-terms-conditions' size='modal-lg'>
+   <div className='p-2'>
+      <p>In using Anna, you agree to these terms and conditions:</p>
+      <ol className='m-0' type='A'>
+         <li>All responses and correspondences with Anna will be recorded.</li>
+         <li>
+            Information such as name (required), age (required), sex (required), senior high school strand (required), and related
+            correspondence will be for the exclusive use of this study to continuously improve Anna.
+         </li>
+         <li>The data collected will be used for as long as it is needed for further analysis or investigation.</li>
+         <li>You are free to exit the conversation with Anna if you feel the need to do so.</li>
+      </ol>
+   </div>
 
-            <div className='p-2'>
-               <h1 className='h5 custom-heading text-primary'>TITLE OF STUDY:</h1>
-               <p className='mb-1'>ANNA: A Web-based Chatbot for Career Planning following Cooperative Principle</p>
-            </div>
+   <div className='p-2'>
+      <h1 className='h5 custom-heading text-primary'>USER GUIDELINES:</h1>
+      <p>Anna could only converse in the English language. It is then recommended that your responses be in English.</p>
+      <p>
+         If the user is idle for more than 20 minutes, Anna would end the conversation by replying with phrases like, "I think I lost you
+         there. Please do reach out to me again anytime. I'll be here 😊". If this happens, greeting Anna with words like "Hello", or "Hi",
+         will start a new conversation.
+      </p>
+      <p className='mb-1'>
+         If any problems occur during the conversation process, or you have any suggestions or comments you would like to share with the
+         researchers, please leave a feedback
+         <a className='text-primary ms-1' href='/#feedback'>
+            here
+         </a>
+         . Your insights and suggestions would help improve our project.
+      </p>
+   </div>
 
-            <div className='p-2'>
-               <h1 className='h5 custom-heading text-primary'>RESEARCHERS:</h1>
-               <p className='mb-1'>Rey Mond Gomera, John Michael Amto, Ryan Christian Hibaya</p>
-            </div>
+   <div className='p-2'>
+      <h1 className='h5 custom-heading text-primary'>CONFIDENTIALITY</h1>
+      <p>
+         The information that Anna will be obtaining throughout the conversation will remain confidential to protect your rights or welfare.
+      </p>
+      <p>
+         RA 10173 or the Data Privacy Act protects individuals from unauthorized processing of personal information. To ensure that your
+         information is protected, the researchers will follow this law to keep your information safe and confidential.
+      </p>
+   </div>
 
-            <div className='p-2'>
-               <h1 className='h5 custom-heading text-primary'>USER GUIDELINES:</h1>
-               <p>Anna could only converse in the English language. It is then recommended that your responses be in English.</p>
-               <p>
-                  If the user is idle for more than 20 minutes, Anna would end the conversation by replying with phrases like, "I think I lost you
-                  there. Please do reach out to me again anytime. I'll be here 😊". If this happens, greeting Anna with words like "Hello", or "Hi",
-                  will start a new conversation.
-               </p>
-               <p className='mb-1'>
-                  If any problems occur during the conversation process, or you have any suggestions or comments you would like to share with the
-                  researchers, please leave a feedback
-                  <a className='text-primary ms-1' href='/#feedback'>
-                     here
-                  </a>
-                  . Your insights and suggestions would help improve our project.
-               </p>
-            </div>
+   <div className='p-2'>
+      <h1 className='h5 custom-heading text-primary'>DEFINITIONS</h1>
+      <p>
+         Throughout the conversation, Anna will be responding to possible jargons. To ensure that you understand Anna, the definition of
+         words will be provided:
+      </p>
+      <p className='mb-1'>
+         <span className='fw-bold'>Degree Program</span> - A class that a college or university offers to students. (Bachelor of Science in
+         Information Technology, etc..)
+      </p>
+      <p className='mb-1'>
+         <span className='fw-bold'>RIASEC</span> - A personality test that asks about your interest, skills, ability, and aspirations which
+         will help you decide on what career to pursue based on these attributes.
+      </p>
+      <p className='mb-1'>
+         <span className='fw-bold'>Senior high school strand</span> - Disciplines that are offered by schools to senior high school students
+         that would prepare them for college.
+      </p>
+   </div>
 
-            <div className='p-2'>
-               <h1 className='h5 custom-heading text-primary'>CONFIDENTIALITY</h1>
-               <p>
-                  The information that Anna will be obtaining throughout the conversation will remain confidential to protect your rights or welfare.
-               </p>
-               <p>
-                  RA 10173 or the Data Privacy Act protects individuals from unauthorized processing of personal information. To ensure that your
-                  information is protected, the researchers will follow this law to keep your information safe and confidential.
-               </p>
-            </div>
+   {!isAgreeTermsConditions && (
+      <div className='form-check m-2'>
+         <input
+            className='form-check-input'
+            onChange={() => handleTermsConditionAgree()}
+            type='checkbox'
+            value=''
+            id='terms-conditions-check'
+         />
+         <label className='form-check-label fw-bold' htmlFor='terms-conditions-check'>
+            I Agree to the Terms and Conditions
+         </label>
+      </div>
+   )}
 
-            <div className='p-2'>
-               <h1 className='h5 custom-heading text-primary'>DEFINITIONS</h1>
-               <p>
-                  Throughout the conversation, Anna will be responding to possible jargons. To ensure that you understand Anna, the definition of
-                  words will be provided:
-               </p>
-               <p className='mb-1'>
-                  <span className='fw-bold'>Degree Program</span> - A class that a college of university offers to students. (Bachelor of Science in
-                  Information Technology, etc..)
-               </p>
-               <p className='mb-1'>
-                  <span className='fw-bold'>RIASEC</span> - A personality test that asks about your interest, skills, ability, and aspirations which
-                  will help you decide on what career to pursue based on these attributes.
-               </p>
-               <p className='mb-1'>
-                  <span className='fw-bold'>Senior high school strand</span> - Disciplines that are offered by schools to senior high school students
-                  that would prepare them for college.
-               </p>
-            </div>
-
-            {!isAgreeTermsConditions && (
-               <div className='form-check m-2'>
-                  <input
-                     className='form-check-input'
-                     onChange={() => handleTermsConditionAgree()}
-                     type='checkbox'
-                     value=''
-                     id='terms-conditions-check'
-                  />
-                  <label className='form-check-label fw-bold' htmlFor='terms-conditions-check'>
-                     I Agree to the Terms and Conditions
-                  </label>
-               </div>
-            )}
-
-            <div className='mt-3 float-end'>
-               <button className='btn btn-primary' data-bs-dismiss='modal'>
-                  Close
-               </button>
-            </div>
-         </Modal>
+   <div className='mt-3 float-end'>
+      <button className='btn btn-primary' data-bs-dismiss='modal'>
+         Close
+      </button>
+   </div>
+</Modal>
 
          <Modal
             title={`${basis === 'riasec' ? 'RIASEC' : 'Strand'} | Recommended Degree Programs`}

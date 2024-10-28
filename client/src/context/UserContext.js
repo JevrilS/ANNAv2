@@ -7,7 +7,7 @@ export const UserProvider = ({ children }) => {
   const [isSidebarActive, setIsSidebarActive] = useState(false);
 
   const handleLogout = (navigate) => {
-    console.log('Logout clicked from context!'); // Check if this is triggered
+    console.log('Logout clicked from context!'); // Check if this is triggered  
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     setIsAuthenticated(false);

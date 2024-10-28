@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { useModalInstance, useModal } from 'react-modal-state'; // Correct import
 import { Modal } from 'react-bootstrap';
 import anna from '../../assets/Anna_1.svg';
@@ -12,9 +12,12 @@ const LoginModal = () => {
   const { setIsAuthenticated } = useContext(UserContext);
   const { open: openRegisterModal } = useModal('register'); // Destructure the open function from useModal
   const { open: openForgotPasswordModal } = useModal('forgotPassword'); // Destructure ForgotPassword modal function
+  
+  const [isLoggingIn, setIsLoggingIn] = useState(false); // State to track login process
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setIsLoggingIn(true); // Set to true when login starts
 
     const loginData = {
       email: e.target.loginEmail.value,
@@ -22,7 +25,7 @@ const LoginModal = () => {
     };
 
     try {
-      const response = await api.post('https://django-backend-807323421144.asia-northeast1.run.app/auth/token/', loginData, {
+      const response = await api.post('/auth/token/', loginData, {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -31,6 +34,7 @@ const LoginModal = () => {
       if (response.status === 200) {
         if (!response.data.is_active) {
           toast.warn('Please verify your account by clicking on the verification link sent to your email.');
+          setIsLoggingIn(false); // Reset login state
           return; // Exit early if the account is not active
         }
 
@@ -60,6 +64,8 @@ const LoginModal = () => {
       } else {
         toast.error('Login failed. Please check your credentials.');
       }
+    } finally {
+      setIsLoggingIn(false); // Reset login state
     }
   };
 
@@ -118,8 +124,8 @@ const LoginModal = () => {
             </a>
           </div>
           <div className="d-flex justify-content-center mt-3">
-            <button className="btn btn-primary" type="submit">
-              Login
+            <button className="btn btn-primary" type="submit" disabled={isLoggingIn}>
+              {isLoggingIn ? 'Logging in...' : 'Login'}
             </button>
           </div>
           <div className="text-center mt-3 dont-have-account">

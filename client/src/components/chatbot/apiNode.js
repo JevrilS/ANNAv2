@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create an axios instance for making requests to your Node.js backend API
 const apiNode = axios.create({
-  baseURL: 'https://node-backend-807323421144.asia-northeast1.run.app', // Replace with the actual URL of your deployed Node.js backend
+  baseURL: 'https://node-backend-604521917673.asia-northeast1.run.app', // Replace with the actual URL of your deployed Node.js backend
   headers: {
     'Content-Type': 'application/json',
   },

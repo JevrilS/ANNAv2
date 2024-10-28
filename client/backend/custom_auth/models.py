@@ -39,16 +39,27 @@ class MyUserManager(BaseUserManager):
             raise ValueError('The Email field must be set')
         email = self.normalize_email(email)
         school_id = extra_fields.get('school_id')
+        section_id = extra_fields.get('section_id')
+
         if school_id:
             try:
                 school = School.objects.get(id=school_id)
                 extra_fields['school'] = school
             except School.DoesNotExist:
                 raise ValueError('Invalid school id')
+
+        if section_id:
+            try:
+                section = Section.objects.get(id=section_id)
+                extra_fields['section'] = section
+            except Section.DoesNotExist:
+                raise ValueError('Invalid section id')
+
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
+
 
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
@@ -73,6 +84,7 @@ class MyUserManager(BaseUserManager):
 
 
 
+from datetime import date
 
 class Conversation(models.Model):
     # Foreign key to the user model
@@ -80,10 +92,8 @@ class Conversation(models.Model):
 
     # Other fields...
     name = models.CharField(max_length=255)
-    age = models.IntegerField()
     sex = models.CharField(max_length=20)
     strand = models.CharField(max_length=255)
-    
     
     realistic_score = models.IntegerField(default=0)
     investigative_score = models.IntegerField(default=0)
@@ -98,6 +108,18 @@ class Conversation(models.Model):
 
     def __str__(self):
         return f"Conversation with {self.name} (RIASEC: {self.riasec_code})"
+    
+    @property
+    def age(self):
+        """
+        Calculate the age of the user based on their birthday.
+        """
+        if self.user.birthday:
+            today = date.today()
+            birthdate = self.user.birthday
+            age = today.year - birthdate.year - ((today.month, today.day) < (birthdate.month, birthdate.day))
+            return age
+        return None
 
 # Ensure this model is recognized in the 'shared' apps or 'public' schema.
 class School(models.Model):
@@ -127,6 +149,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     mobile_no = models.CharField(max_length=20)
     sex = models.CharField(max_length=10)
     strand = models.CharField(max_length=50)
+    birthday = models.DateField(null=True, blank=True)  # Add birthday instead of age
+    section = models.ForeignKey('Section', on_delete=models.SET_NULL, null=True, db_column='section_id')  # Add this line
     grade_level = models.CharField(max_length=2)
     school = models.ForeignKey('School', on_delete=models.SET_NULL, null=True, db_column='school_id')
     is_active = models.BooleanField(default=False)
@@ -138,7 +162,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     objects = MyUserManager()
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['id_no', 'full_name', 'mobile_no', 'sex', 'strand', 'grade_level']
+    REQUIRED_FIELDS = ['id_no', 'full_name', 'mobile_no', 'sex', 'strand', 'grade_level', 'section']  # Update required fields if needed
 
     groups = models.ManyToManyField(
         'auth.Group',
@@ -216,3 +240,10 @@ class AllowedOrigin(models.Model):
 
     def __str__(self):
         return self.origin
+    
+class Section(models.Model):
+    name = models.CharField(max_length=255)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='sections')
+
+    def __str__(self):
+        return self.name

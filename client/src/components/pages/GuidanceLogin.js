@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import 'bootstrap/dist/css/bootstrap.min.css';  // Import Bootstrap
 import Anna1 from '../../assets/Anna_1.svg';  // Import the image from your assets
 import api from '../../utils/api';  // Import the API utility
+import { UserContext } from '../../context/UserContext';  // Import UserContext to manage auth state
 
 const GuidanceLogin = () => {
   const [admin, setAdmin] = useState('');
@@ -11,8 +12,8 @@ const GuidanceLogin = () => {
   const [loading, setLoading] = useState(false);  // State for loading
   const navigate = useNavigate();
   const isMounted = useRef(true);  // Use ref to track mounted status
+  const { setIsAuthenticated } = useContext(UserContext);  // Get setIsAuthenticated from UserContext
   
-  // Function to handle login
   const handleLogin = async (e) => {
     e.preventDefault();
     
@@ -27,15 +28,20 @@ const GuidanceLogin = () => {
       const data = response.data;
 
       if (isMounted.current && response.status === 200 && data.access && data.refresh) {
-        // Store tokens only if they exist
-        localStorage.setItem('token', data.access);  
+        // Store tokens using 'authToken' and 'refreshToken'
+        localStorage.setItem('authToken', data.access);  
         localStorage.setItem('refreshToken', data.refresh);  
+        
         console.log('Access Token:', data.access); 
         console.log('Refresh Token:', data.refresh);
         toast.success('Login successful!');
         
-        // Force a redirect to dashboard after successful login
-        window.location.replace('/admin/dashboard');
+        // Update isAuthenticated state to trigger re-render
+        setIsAuthenticated(true);
+        
+        console.log('Navigating to dashboard');
+        // Use navigate to redirect after login
+        navigate('/admin/dashboard', { replace: true });
         
       } else if (isMounted.current) {
         // If response isn't ok or tokens don't exist, show error

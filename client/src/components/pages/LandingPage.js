@@ -72,7 +72,6 @@ const LandingPage = () => {
   }, []);
   
   
-
 const fetchUserInfo = async () => {
   const token = localStorage.getItem('authToken');
   if (token) {
@@ -83,9 +82,9 @@ const fetchUserInfo = async () => {
         },
       });
       if (response.status === 200) {
-        const { name, age, sex, strand, grade_level } = response.data;
+        const { full_name, age, sex, strand, grade_level } = response.data;
         setUser({
-          name,
+          full_name,
           age,
           sex,
           strand,
@@ -97,6 +96,7 @@ const fetchUserInfo = async () => {
     }
   }
 };
+
 
 const refreshAccessToken = async () => {
   try {
@@ -255,8 +255,28 @@ const checkAuthStatus = async () => {
 
   const handleFeedbackSubmit = async (e) => {
     e.preventDefault();
-    // Implement the feedback submission logic here
-  };
+
+    if (!feedback) {
+        setFeedbackError(true);  // Ensure feedback is not empty
+        return;
+    }
+
+    try {
+        const token = localStorage.getItem('authToken');  // Use the token for authentication
+        await api.post('/feedback/', { feedback }, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+
+        // Show success message or perform further actions
+        toast.success('Feedback submitted successfully!');
+    } catch (error) {
+        console.error('Error submitting feedback:', error);
+        toast.error('Failed to submit feedback.');
+    }
+};
+
 
   return (
     <>
@@ -308,57 +328,40 @@ const checkAuthStatus = async () => {
               </div>
 
               <div className='d-flex flex-column align-items-center align-items-lg-start mt-5 mt-lg-0 ms-lg-5'>
-                <h1 className='custom-heading text-primary'>What is RIASEC test?</h1>
-                <p>
-                  The RIASEC test was based on Holland’s theory, in which he proposed that careers can be classified into six areas:
-                  Realistic, Investigative, Artistic, Social, Enterprising and Conventional. Thus, these six areas can be used to describe a
-                  person's personality, ability, skills, and interests. Also, it is a standardized test that was designed to help students
-                  discover the most suitable career for them and has been administered by several universities inside or outside the
-                  Philippines and these universities believed that the RIASEC test really serves its purpose of helping students.
-                </p>
-                <p>Watch the video to learn more about the components of RIASEC.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+  <h1 className='custom-heading text-primary'>What is RIASEC test?</h1>
+  <p>
+    The RIASEC test was based on Holland’s theory, in which he proposed that careers can be classified into six areas: Realistic, Investigative, Artistic, Social, Enterprising, and Conventional. These six areas can describe a person's personality, ability, skills, and interests. The RIASEC test is designed to help students discover suitable careers and has been administered by several universities in and outside the Philippines, proving its effectiveness in guiding students.
+  </p>
+  <p>Watch the video to learn more about the components of RIASEC.</p>
+</div>
+</div>
+</div>
+</div>
+</section>
 
-      <section id='feedback' className='section bg-white'>
-        <div className='container d-flex flex-column px-0 '>
-          <h1 className='custom-heading mb-5 text-center text-primary'>FEEDBACK</h1>
-          <form className='d-flex flex-column justify-content-center align-items-center px-4' noValidate onSubmit={handleFeedbackSubmit}>
-            <div className='mb-4 w-100'>
-              <input
-                className='form-control'
-                value={feedbackEmail}
-                type='email'
-                id='feedbackEmail'
-                name='feedbackEmail'
-                required
-                placeholder='Email Address'
-                onChange={handleInputChange}
-              />
-              {!feedbackEmail && <div className='invalid-feedback py-1 px-1'>Email can't be empty</div>}
-            </div>
-            <div className='mb-4 w-100'>
-              <textarea
-                className='form-control'
-                value={feedback}
-                id='feedback'
-                name='feedback'
-                required
-                rows='12'
-                placeholder='Tell us how can we improve...'
-                onChange={handleInputChange}
-              ></textarea>
-              {!feedback && <div className='invalid-feedback py-1 px-1'>Feedback can't be empty</div>}
-            </div>
-            <button className='btn btn-primary rounded-pill px-3' type='submit'>
-              Submit
-            </button>
-          </form>
-        </div>
-      </section>
+<section id='feedback' className='section bg-white'>
+  <div className='container d-flex flex-column px-0 '>
+    <h1 className='custom-heading mb-5 text-center text-primary'>FEEDBACK</h1>
+    <form className='d-flex flex-column justify-content-center align-items-center px-4' noValidate onSubmit={handleFeedbackSubmit}>
+      <div className='mb-4 w-100'>
+        <textarea
+          className='form-control'
+          value={feedback}
+          id='feedback'
+          name='feedback'
+          required
+          rows='12'
+          placeholder='Tell us how can we improve...'
+          onChange={handleInputChange}
+        ></textarea>
+        {!feedback && <div className='invalid-feedback py-1 px-1'>Feedback can't be empty</div>}
+      </div>
+      <button className='btn btn-primary rounded-pill px-3' type='submit'>
+        Submit
+      </button>
+    </form>
+  </div>
+</section>
       <Chatbot />
 
       <footer className='mt-auto bg-primary'>

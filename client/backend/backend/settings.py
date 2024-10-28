@@ -20,7 +20,7 @@ def access_secret_version(project_id, secret_id):
         return None  # Return None if there's an error
 
 # Google Cloud project and secret details
-GOOGLE_PROJECT_ID = 'annadialogflow'  # Your Google Cloud project ID
+GOOGLE_PROJECT_ID = 'capstoneanna'  # Your Google Cloud project ID
 SERVICE_ACCOUNT_SECRET_ID = 'service_account_info'  # Secret ID for service account
 EMAIL_HOST_USER_SECRET_ID = 'EMAIL_HOST_USER'  # Secret ID for email user
 EMAIL_HOST_PASSWORD_SECRET_ID = 'EMAIL_HOST_PASSWORD'  # Secret ID for email password
@@ -87,7 +87,7 @@ SIMPLE_JWT = {
 }
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    'https://react-frontend-807323421144.asia-northeast1.run.app',  # Add your frontend URL
+    'https://react-frontend-604521917673.asia-northeast1.run.app',  # Add your frontend URL
 
     
 ]
@@ -105,9 +105,9 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000", "http://localhost:8000", 
     "http://uic.localhost:8000", "http://127.0.0.1:3000", 
     "http://school1.localhost:3000", "http://uic.localhost:3000",  
-    'https://react-frontend-807323421144.asia-northeast1.run.app',
-    "https://node-backend-807323421144.asia-northeast1.run.app",
-    "https://django-backend-807323421144.asia-northeast1.run.app"
+    'https://react-frontend-604521917673.asia-northeast1.run.app',  # Add your frontend URL
+    "https://node-backend-604521917673.asia-northeast1.run.app",
+    "https://django-backend-604521917673.asia-northeast1.run.app"
 ]
 CSRF_COOKIE_SECURE = True  # Only send CSRF cookies over HTTPS
 SESSION_COOKIE_SECURE = True  # Only send session cookies over HTTPS
@@ -209,8 +209,8 @@ DATABASES = {
         'ENGINE': 'django_tenants.postgresql_backend',
         'NAME': 'postgres',  # Your PostgreSQL database name
         'USER': 'postgres',  # Your PostgreSQL username
-        'PASSWORD': 'L1v#&*_=n|)b-%;A',  # Your PostgreSQL password
-        'HOST': '/cloudsql/annadialogflow:asia-northeast1:anna',  # Cloud SQL instance
+        'PASSWORD': '21X_|n&e8nMSlQNU',  # Your PostgreSQL password
+        'HOST': '/cloudsql/capstoneanna:asia-northeast1:anna',  # Cloud SQL instance
         'PORT': '5432',
     }
 }

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'; // Use useNavigate for navigatio
 import { toast } from 'react-toastify';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import api from '../../utils/api'; // Axios instance for making requests
+import { TailSpin } from 'react-loader-spinner'; // Correct import for the loader
 
 const Results = () => {
   const [conversationData, setConversationData] = useState(null);
@@ -54,21 +55,47 @@ const Results = () => {
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="d-flex flex-column align-items-center justify-content-center vh-100">
+        {/* Loader for better UI experience */}
+        <TailSpin color="#ffcc00" height={100} width={100} />
+        <p className="mt-3" style={{ color: '#555', fontSize: '1.2rem' }}>Fetching results, please wait...</p>
+      </div>
+    );
   }
-
+  
   if (!conversationData) {
-    return <div>No results found</div>;
-  }
-
-  return (
-    <div className="container mt-5 p-4 shadow-sm bg-light rounded">
-      {/* Back Button */}
-      <div className="d-flex justify-content-start mb-4">
-        <button className="btn btn-link text-decoration-none" onClick={handleBackClick}>
-          <i className="bi bi-arrow-left-circle-fill fs-3 text-warning"></i>
+    return (
+      <div className="container d-flex flex-column align-items-center justify-content-center vh-100">
+        <i className="bi bi-exclamation-circle" style={{ fontSize: '5rem', color: '#ffcc00' }}></i>
+        <h2 className="mt-3" style={{ color: '#555' }}>No Results Found</h2>
+        <p className="text-muted">We couldn't find any matching results. Please try again later or go back to check other options.</p>
+        <button
+          className="btn btn-warning mt-3"
+          style={{ fontSize: '1rem', padding: '10px 20px' }}
+          onClick={handleBackClick}
+        >
+          Go Back
         </button>
       </div>
+    );
+  }
+  
+  return (
+    <div className="container mt-5 p-4 shadow-sm bg-light rounded">
+      
+      {/* Back Button */}
+      <div className="d-flex justify-content-start mb-4">
+        <button
+          className="btn btn-link text-decoration-none"
+          style={{ fontSize: '4rem', color: '#ffcc00', padding: '0', lineHeight: '1' }} // Increase font size and line-height for a bigger arrow
+          onClick={handleBackClick}
+        >
+          <i className="bi bi-arrow-left-circle-fill"></i>
+        </button>
+      </div>
+
+
 
       {/* Centered Student Information Section */}
       <div className="row mb-5 justify-content-center text-center">
@@ -110,25 +137,29 @@ const Results = () => {
           {/* RIASEC Courses */}
           <div className="col-md-6 mb-3">
             <h5 className="text-center">RIASEC</h5>
-            <ul className="list-group list-group-flush border rounded">
-              {conversationData.riasec_course_recommendation.map((course, index) => (
-                <li key={index} className="list-group-item py-2">
-                  {course}
-                </li>
-              ))}
-            </ul>
+            <div className="card border-0 shadow-sm">
+              <ul className="list-group list-group-flush border rounded">
+                {conversationData.riasec_course_recommendation.map((course, index) => (
+                  <li key={index} className="list-group-item py-2">
+                    {course}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
 
           {/* Strand Courses */}
           <div className="col-md-6 mb-3">
             <h5 className="text-center">STRAND</h5>
-            <ul className="list-group list-group-flush border rounded">
-              {conversationData.strand_course_recommendation.map((course, index) => (
-                <li key={index} className="list-group-item py-2">
-                  {course}
-                </li>
-              ))}
-            </ul>
+            <div className="card border-0 shadow-sm">
+              <ul className="list-group list-group-flush border rounded">
+                {conversationData.strand_course_recommendation.map((course, index) => (
+                  <li key={index} className="list-group-item py-2">
+                    {course}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       </div>

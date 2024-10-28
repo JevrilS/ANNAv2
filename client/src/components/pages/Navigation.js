@@ -1,6 +1,6 @@
 import React, { useState, useContext } from 'react';
 import { Col, Nav, Button } from 'react-bootstrap';
-import { FaHome, FaCommentDots, FaClipboardList, FaSignOutAlt } from 'react-icons/fa';
+import { FaHome, FaCommentDots, FaClipboardList, FaSignOutAlt, FaTasks } from 'react-icons/fa'; // Import FaTasks for Management section
 import { useNavigate } from 'react-router-dom';
 import { UserContext } from '../../context/UserContext'; // Import the UserContext
 
@@ -11,18 +11,18 @@ const Navigation = () => {
 
   const handleLogout = () => {
     // Clear the authentication tokens
-    localStorage.removeItem('token');
+    localStorage.removeItem('authToken');  // Update to remove 'authToken'
     localStorage.removeItem('refreshToken');
     // Set authentication state to false
     setIsAuthenticated(false);
     // Navigate to login page
     navigate('/admin/login');
   };
-
+  
   const toggleSidebar = () => setIsSidebarCollapsed((prevState) => !prevState);
 
   const handleNavigation = (path) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('authToken');  // Fix token name here
     if (!token) {
       console.warn('No token found, redirecting to login.');
       handleLogout();  // If no token is found, log out the user
@@ -31,11 +31,12 @@ const Navigation = () => {
       navigate(path); // Otherwise, navigate to the selected path
     }
   };
-
+  
   const navItems = [
     { path: '/admin/dashboard', label: 'Dashboard', icon: <FaHome /> },
     { path: '/admin/conversation', label: 'Conversations', icon: <FaClipboardList /> },
     { path: '/admin/feedback', label: 'Feedback', icon: <FaCommentDots /> },
+    { path: '/admin/management', label: 'Management', icon: <FaTasks /> }, // Management section added
   ];
 
   // Custom NavItem component to avoid repetition
@@ -77,11 +78,14 @@ const Navigation = () => {
   return (
     <Col
       xs="auto"
-      className="bg-warning vh-100 d-flex flex-column"
+      className="bg-warning d-flex flex-column"
       style={{
         width: isSidebarCollapsed ? '80px' : '200px',
         transition: 'width 0.3s ease',
-        overflow: 'hidden',
+        overflowY: 'auto',  // Add this line for vertical scrolling
+        overflowX: 'hidden', // Prevent horizontal scroll
+        minHeight: '100vh',  // Ensure the sidebar stretches to full viewport height
+        paddingBottom: '20px', // Ensure space at the bottom
       }}
     >
       {/* Toggle Button */}
@@ -94,7 +98,7 @@ const Navigation = () => {
         <span className="navbar-toggler-icon"></span>
       </Button>
 
-      {/* Nav items are spaced closer to the top after the toggle button */}
+      {/* Nav items */}
       <Nav className="flex-column" style={{ marginTop: '20px' }}>
         {navItems.map((item) => (
           <NavItem key={item.path} path={item.path} label={item.label} icon={item.icon} />

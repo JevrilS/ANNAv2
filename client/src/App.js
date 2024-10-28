@@ -16,6 +16,7 @@ import Dashboard from './components/pages/Dashboard';
 import Feedback from './components/pages/Feedback';
 import Conversation from './components/pages/Conversation';
 import ConversationDetails from './components/pages/ConversationDetails';
+import Management from './components/pages/Management'; // Import the Management component
 import PageNotFound from './components/pages/PageNotFound';
 import LandingPage from './components/pages/LandingPage';
 import { ChatbotContext } from './context/ChatbotContext';
@@ -175,6 +176,7 @@ function AppRoutes({ isAuthenticated }) {
         <Route path="feedback" element={<Feedback />} />
         <Route path="conversation" element={<Conversation />} />
         <Route path="conversation/:conversationId" element={<ConversationDetails />} />
+        <Route path="management" element={<Management />} /> {/* Add the Management route */}
       </Route>
 
       {/* Redirect to dashboard if authenticated, otherwise show login */}

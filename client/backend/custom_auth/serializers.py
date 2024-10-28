@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, School
+from .models import Section, User, School, Conversation
 
 class SchoolSerializer(serializers.ModelSerializer):
     class Meta:
@@ -71,3 +71,16 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['is_active'] = self.user.is_active
         
         return data
+class SectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Section
+        fields = ['id', 'name', 'school_id']
+        
+class ConversationSerializer(serializers.ModelSerializer):
+    age = serializers.ReadOnlyField()
+
+    class Meta:
+        model = Conversation
+        fields = ['name', 'sex', 'strand', 'realistic_score', 'investigative_score', 'artistic_score', 
+                  'social_score', 'enterprising_score', 'conventional_score', 'riasec_code', 
+                  'riasec_course_recommendation', 'strand_course_recommendation', 'created_at', 'age']

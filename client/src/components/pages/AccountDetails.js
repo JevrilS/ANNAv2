@@ -14,12 +14,11 @@ function AccountDetails() {
     full_name: '',
     email: '',
     mobile_no: '',
-    school_id: '',
+    birthday: '', // Added birthday field
     strand: '',
     sex: '',
     grade_level: '',
   });
-  const [schools, setSchools] = useState([]);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
@@ -38,21 +37,24 @@ function AccountDetails() {
         if (!token) {
           throw new Error('No auth token found');
         }
-  
+    
         const response = await api.get('/auth/user/', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-  
+    
         console.log('User Data:', response.data); // Check this log
-  
+    
+        // Format the birthday to 'YYYY-MM-DD' for date input fields
+        const formattedBirthday = response.data.birthday ? new Date(response.data.birthday).toISOString().split('T')[0] : '';
+    
         setFormData({
           id_no: response.data.id_no || '',
           full_name: response.data.full_name || '',
           email: response.data.email || '',
           mobile_no: response.data.mobile_no || '',
-          school_id: String(response.data.school_id) || '', // Ensure it's a string
+          birthday: formattedBirthday, // Ensure birthday is formatted
           strand: response.data.strand || '',
           sex: response.data.sex || '',
           grade_level: response.data.grade_level || '',
@@ -70,44 +72,10 @@ function AccountDetails() {
         }
       }
     };
+    
   
     fetchUserData();
   }, [navigate]);
-  // Fetch schools
- // Fetch schools
- useEffect(() => {
-  const fetchSchools = async () => {
-    try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('No auth token found');
-      }
-
-      const response = await api.get('/auth/schools/', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      console.log('Schools Data:', response.data); // Verify the data
-
-      setSchools(response.data);
-    } catch (error) {
-      console.error('Error fetching schools:', error.response ? error.response.data : error.message);
-      if (error.response) {
-        console.log('Response Status:', error.response.status);
-        console.log('Response Headers:', error.response.headers);
-      }
-      toast.error('Failed to fetch schools');
-      if (error.response && error.response.status === 401) {
-        toast.error('You are not authorized. Please log in again.');
-        navigate('/login'); // Redirect to login if unauthorized
-      }
-    }
-  };
-
-  fetchSchools();
-}, [navigate]);
 
   const handleChange = (e) => {
     setFormData({
@@ -179,18 +147,22 @@ function AccountDetails() {
       toast.error('Error updating account details');
     }
   };
+
   return (
     <div className="container-fluid">
       <div className="row">
+        {/* Navigation Sidebar */}
         <div className="col-2 bg-warning vh-100 d-flex flex-column align-items-center py-4">
           <button className="btn btn-light mb-4" onClick={() => navigate(-1)}>
             <i className="bi bi-arrow-left"></i>
           </button>
           <div className="nav flex-column nav-pills text-center w-100">
             <a className="nav-link active mb-3" href="#account">Account</a>
-            <a className="nav-link" href="#result">Results</a>
+            <a className="nav-link" onClick={() => navigate('/result')}>Results</a> {/* Navigate to Results */}
           </div>
         </div>
+
+        {/* Account Details Form */}
         <div className="col-10">
           <div className="card mt-5 mx-auto" style={{ width: '80%' }}>
             <div className="card-body">
@@ -226,35 +198,23 @@ function AccountDetails() {
                     </div>
                     <div className="row">
                       <div className="col-md-6 mb-3">
-                        <label htmlFor="school_id" className="form-label">School</label>
-                        <select
-  className="form-select"
-  id="school_id"
-  value={formData.school_id} // Correctly bind the value
-  onChange={handleChange}
->
-  <option value="" hidden>Select School</option>
-  {schools.map((school) => (
-    <option key={school.id} value={school.id}>
-      {school.school_des}
-    </option>
-  ))}
-</select>
+                        <label htmlFor="birthday" className="form-label">Birthday</label> {/* New birthday field */}
+                        <input type="date" className="form-control" id="birthday" value={formData.birthday} onChange={handleChange} />
                       </div>
                       <div className="col-md-6 mb-3">
-                      <label htmlFor="strand" className="form-label">Strand</label>
-                      <select className="form-select" id="strand" value={formData.strand} onChange={handleChange} required>
-                        <option value="" hidden>Strand</option>
-                        <option value="ABM">ABM</option>
-                        <option value="ARTSDESIGN">ARTS&DESIGN</option>
-                        <option value="STEM">STEM</option>
-                        <option value="HUMSS">HUMSS</option>
-                        <option value="TVL - Information and Communications Technology">TVL - Information and Communications Technology</option>
-                        <option value="TVL - Home Economics">TVL - Home Economics</option>
-                        <option value="TVL - Agri-Fishery Arts">TVL - Agri-Fishery Arts</option>
-                        <option value="TVL - Industrial Arts">TVL - Industrial Arts</option>
-                      </select>
-                    </div>
+                        <label htmlFor="strand" className="form-label">Strand</label>
+                        <select className="form-select" id="strand" value={formData.strand} onChange={handleChange} required>
+                          <option value="" hidden>Select Strand</option>
+                          <option value="ABM">ABM</option>
+                          <option value="ARTSDESIGN">ARTS&DESIGN</option>
+                          <option value="STEM">STEM</option>
+                          <option value="HUMSS">HUMSS</option>
+                          <option value="TVL - Information and Communications Technology">TVL - Information and Communications Technology</option>
+                          <option value="TVL - Home Economics">TVL - Home Economics</option>
+                          <option value="TVL - Agri-Fishery Arts">TVL - Agri-Fishery Arts</option>
+                          <option value="TVL - Industrial Arts">TVL - Industrial Arts</option>
+                        </select>
+                      </div>
 
                       <div className="col-md-6 mb-3">
                         <label htmlFor="sex" className="form-label">Sex</label>
