@@ -87,9 +87,12 @@ SIMPLE_JWT = {
 }
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    'https://react-frontend-604521917673.asia-northeast1.run.app',  # Add your frontend URL
+    'https://react-frontend-604521917673.asia-northeast1.run.app', 
+    "https://annaguidance.ai",
+    "https://uic.annaguidance.ai",
+    "https://school1.annaguidance.ai",
 
-    
+
 ]
 # CORS settings
 CORS_ALLOW_CREDENTIALS = True
@@ -108,6 +111,9 @@ CSRF_TRUSTED_ORIGINS = [
     'https://react-frontend-604521917673.asia-northeast1.run.app',  # Add your frontend URL
     "https://node-backend-604521917673.asia-northeast1.run.app",
     "https://django-backend-604521917673.asia-northeast1.run.app"
+    "https://annaguidance.ai",
+    "https://uic.annaguidance.ai",
+    "https://school1.annaguidance.ai",
 ]
 CSRF_COOKIE_SECURE = True  # Only send CSRF cookies over HTTPS
 SESSION_COOKIE_SECURE = True  # Only send session cookies over HTTPS
@@ -209,7 +215,7 @@ DATABASES = {
         'ENGINE': 'django_tenants.postgresql_backend',
         'NAME': 'postgres',  # Your PostgreSQL database name
         'USER': 'postgres',  # Your PostgreSQL username
-        'PASSWORD': '21X_|n&e8nMSlQNU',  # Your PostgreSQL password
+        'PASSWORD': '%O,DZ/bmo1Ej^qG-',  # Your PostgreSQL password
         'HOST': '/cloudsql/capstoneanna:asia-northeast1:anna',  # Cloud SQL instance
         'PORT': '5432',
     }

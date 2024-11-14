@@ -418,7 +418,7 @@ const checkAuthStatus = async () => {
             </div>
           </div>
         </div>
-        <small className='w-100 d-block mt-5 p-2 text-center bg-primary-dark'>ANNA | Copyright © 2022</small>
+        <small className='w-100 d-block mt-5 p-2 text-center bg-primary-dark'>ANNA | Copyright © 2024</small>
       </footer>
   
     </>

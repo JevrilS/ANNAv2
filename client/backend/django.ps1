@@ -12,3 +12,4 @@ gcloud run deploy django-backend `
   --allow-unauthenticated `
   --add-cloudsql-instances annadialogflow:asia-northeast1:anna `
   --set-env-vars DB_HOST=/cloudsql/annadialogflow:asia-northeast1:anna
+  
